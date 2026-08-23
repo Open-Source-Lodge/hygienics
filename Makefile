@@ -1,16 +1,16 @@
 .PHONY: build start start-block test clean
 
 build:
-	go build -o hygienics .
+	go build -o bin/hygienics .
 
 start: build
-	./hygienics
+	./bin/hygienics
 
 start-block: build
-	./hygienics -mode block
+	./bin/hygienics -mode block
 
 test:
 	go test ./...
 
 clean:
-	rm -f hygienics
+	rm -rf bin
