@@ -11,6 +11,33 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:8787
 claude
 ```
 
-Detection uses [gitleaks](https://github.com/gitleaks/gitleaks)' default rule set (~220 rules, entropy-aware). Redacted values become `[REDACTED:<rule>:<hash>]` — deterministic, so prompt caching keeps working across turns.
+## Custom secrets
+
+**Exact strings** — the easy way. One secret per line in `~/.config/hygenics/secrets`
+(or pass `-secrets path`); `#` comments and blank lines are ignored:
+
+```
+# never send these
+abc123
+my-internal-db-password
+```
+
+Any request containing one of these is redacted/blocked, no regex needed.
+
+**Pattern rules** — pass `-config rules.toml` in gitleaks format, extending the defaults:
+
+```toml
+[extend]
+useDefault = true
+
+[[rules]]
+id = "acme-token"
+description = "ACME internal token"
+regex = '''acme-[a-z0-9]{12}'''
+```
+
+## Detection
+
+Built-in rules come from [gitleaks](https://github.com/gitleaks/gitleaks)' default set (~220 rules, entropy-aware). Redacted values become `[REDACTED:<rule>:<hash>]` — deterministic, so prompt caching keeps working across turns.
 
 See `RESEARCH.md` for why a proxy and not hooks.
