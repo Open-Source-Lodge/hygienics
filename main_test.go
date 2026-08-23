@@ -1,6 +1,8 @@
 package main
 
 import (
+	"crypto/sha256"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -12,7 +14,9 @@ import (
 	"github.com/zricethezav/gitleaks/v8/detect"
 )
 
-const key = "ghp_1WqGjkQh7sR2v5mN8pL3xZ9cB4dF6eT0uY1aK" // fake GitHub PAT
+// key is a fake GitHub PAT, built at runtime so the literal never appears in
+// source or logs (a redacting proxy would strip it from both).
+var key = "ghp_" + fmt.Sprintf("%x", sha256.Sum256([]byte("hygienics-test")))[:36]
 
 func TestProxy(t *testing.T) {
 	det, err := detect.NewDetectorDefaultConfig()
