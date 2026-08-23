@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -154,8 +155,10 @@ const completionScript = `_hygienics() {
     esac
     if [[ ${COMP_WORDS[1]} == secret ]]; then
         COMPREPLY=($(compgen -W "add remove list path -secrets" -- "$cur"))
+    elif [[ ${COMP_WORDS[1]} == setup ]]; then
+        COMPREPLY=($(compgen -W "-secrets -entropy" -- "$cur"))
     else
-        COMPREPLY=($(compgen -W "secret completion help -listen -upstream -mode -config -secrets" -- "$cur"))
+        COMPREPLY=($(compgen -W "secret setup completion help -listen -upstream -mode -config -secrets" -- "$cur"))
     fi
 }
 complete -F _hygienics hygienics
@@ -164,6 +167,12 @@ complete -F _hygienics hygienics
 func main() {
 	if len(os.Args) > 1 && os.Args[1] == "completion" {
 		fmt.Print(completionScript)
+		return
+	}
+	if len(os.Args) > 1 && os.Args[1] == "setup" {
+		if err := setupCmd(os.Args[2:]); err != nil {
+			log.Fatal(err)
+		}
 		return
 	}
 	if len(os.Args) > 1 && os.Args[1] == "secret" {
@@ -186,6 +195,7 @@ func main() {
   hygienics secret remove          remove a secret from the secrets file
   hygienics secret list            show each secret in a masked form
   hygienics secret path            show the path of the secrets file
+  hygienics setup                  scan the environment, add found secrets to the secrets file
   hygienics completion             print the shell completion script
   hygienics help                   show this help
 
@@ -296,4 +306,116 @@ func secretCmd(args []string) error {
 	default:
 		return fmt.Errorf("usage: hygienics secret [-secrets file] add|remove|list|path")
 	}
+}
+
+// boring lists env vars that must never count as secrets even if a rule fires.
+var boring = map[string]bool{
+	"PATH": true, "HOME": true, "PWD": true, "OLDPWD": true, "SHELL": true,
+	"SHLVL": true, "TERM": true, "USER": true, "LOGNAME": true, "TMPDIR": true,
+	"LANG": true, "EDITOR": true, "PAGER": true,
+}
+
+type envHit struct{ Name, Rule, Secret string }
+
+// shannon returns the Shannon entropy of s in bits per byte.
+func shannon(s string) float64 {
+	var freq [256]float64
+	for i := 0; i < len(s); i++ {
+		freq[s[i]]++
+	}
+	n, h := float64(len(s)), 0.0
+	for _, c := range freq {
+		if c > 0 {
+			p := c / n
+			h -= p * math.Log2(p)
+		}
+	}
+	return h
+}
+
+// envSecrets runs the gitleaks rules over each NAME=value pair. The variable
+// name gives the detector context (TOKEN, PASSWORD, ...) that request bodies
+// lack later — that context is why setup harvests the values as literals.
+func envSecrets(environ []string, det *detect.Detector, entropy float64) []envHit {
+	var out []envHit
+	seen := map[string]bool{}
+	for _, kv := range environ {
+		name, value, _ := strings.Cut(kv, "=")
+		// ponytail: "/" prefix skips paths (no secret starts with a slash);
+		// <8 chars skips values whose redaction would corrupt normal text.
+		if boring[name] || strings.HasPrefix(name, "LC_") ||
+			len(value) < 8 || strings.HasPrefix(value, "/") {
+			continue
+		}
+		findings := det.DetectString(name + "=" + value)
+		for _, f := range findings {
+			if len(f.Secret) < 8 || !strings.Contains(value, f.Secret) || seen[f.Secret] {
+				continue
+			}
+			seen[f.Secret] = true
+			out = append(out, envHit{name, f.RuleID, f.Secret})
+		}
+		// ponytail: recall-over-precision fallback — a high-entropy value
+		// counts as a secret even without a rule match or a name keyword.
+		// 3.3 bits/byte needs ~12 mostly-unique chars; the space skip drops
+		// natural-language values. Raise -entropy if the output is too noisy.
+		if len(findings) == 0 && entropy > 0 && !seen[value] &&
+			!strings.ContainsAny(value, " \t") && shannon(value) >= entropy {
+			seen[value] = true
+			out = append(out, envHit{name, "high-entropy", value})
+		}
+	}
+	return out
+}
+
+// setupCmd scans the process environment for secrets and appends them to the
+// literals file:
+//
+//	hygienics setup [-secrets file]
+func setupCmd(args []string) error {
+	home, _ := os.UserHomeDir()
+	fs := flag.NewFlagSet("setup", flag.ExitOnError)
+	path := fs.String("secrets", filepath.Join(home, ".config", "hygienics", "secrets"), "file with exact secret strings, one per line")
+	entropy := fs.Float64("entropy", 3.3, "entropy threshold in bits per byte for the fallback check; 0 turns the check off")
+	fs.Parse(args)
+	det, err := detect.NewDetectorDefaultConfig()
+	if err != nil {
+		return err
+	}
+	found := envSecrets(os.Environ(), det, *entropy)
+	if len(found) == 0 {
+		fmt.Println("no secrets found in the environment")
+		return nil
+	}
+	existing := map[string]bool{}
+	if lits, err := loadLiterals(*path); err == nil {
+		for _, l := range lits {
+			existing[string(l)] = true
+		}
+	}
+	if err := os.MkdirAll(filepath.Dir(*path), 0o700); err != nil {
+		return err
+	}
+	f, err := os.OpenFile(*path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	added := 0
+	for _, c := range found {
+		state := "added"
+		if existing[c.Secret] {
+			state = "already listed"
+		} else if _, err := f.WriteString(c.Secret + "\n"); err != nil {
+			return err
+		} else {
+			existing[c.Secret] = true
+			added++
+		}
+		// masked output only; this terminal may itself feed an AI session
+		fmt.Printf("%-24s %s… (%d chars, %s) %s\n", c.Name, c.Secret[:min(4, len(c.Secret))], len(c.Secret), c.Rule, state)
+	}
+	fmt.Printf("%d secret(s) added to %s\n", added, *path)
+	fmt.Println("examine the list; remove a wrong entry with: hygienics secret remove")
+	return nil
 }

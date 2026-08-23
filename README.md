@@ -46,6 +46,20 @@ The `add` and `remove` commands show the prompt `enter secret`. Type the secret,
 
 Use the `-secrets` option to select a different file: `./hygienics secret -secrets FILE add`.
 
+### Automatic setup
+
+The `setup` command examines the environment variables:
+
+```sh
+./hygienics setup
+```
+
+The command applies the gitleaks rules to each `NAME=value` pair. The variable name gives context that a request body does not have. For example, the name `DB_PASSWORD` marks the value as a secret. The command adds each found value to the secrets file. The command ignores short values, paths, and common shell variables.
+
+The command also makes an entropy check. A value with high entropy counts as a secret, also when no rule matches and the variable name is not special. Use the `-entropy` option to change the threshold in bits per byte (default 3.3). A higher threshold adds fewer entries. Set the option to `0` to turn the check off.
+
+The command shows each added value in a masked form. Examine the list. A wrong entry causes the proxy to redact normal text. Remove a wrong entry with `./hygienics secret remove`.
+
 ### Pattern rules
 
 Give a rule file in the gitleaks format with the `-config` option. Set `useDefault = true` to keep the default rules:

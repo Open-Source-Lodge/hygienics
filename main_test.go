@@ -136,3 +136,69 @@ func TestSecretCmd(t *testing.T) {
 		t.Fatal("expected refusal of secret argument")
 	}
 }
+
+func TestEnvSecrets(t *testing.T) {
+	det, _ := detect.NewDetectorDefaultConfig()
+	// high-entropy password with no known token format; only the variable
+	// name marks it as a secret. Built at runtime — see the note on key.
+	pw := fmt.Sprintf("%x", sha256.Sum256([]byte("hygienics-env-pw")))
+	blob := fmt.Sprintf("%x", sha256.Sum256([]byte("hygienics-env-blob")))
+	env := []string{
+		"MY_CI_TOKEN=" + key,       // known token format
+		"DB_PASSWORD=" + pw,        // name context only
+		"PATH=/usr/bin:/bin",       // boring
+		"SECRET_SOCK=/tmp/" + pw,   // path guard
+		"API_KEY=short",            // too short
+		"LC_SECRET_KEY=" + pw,      // LC_ prefix guard
+		"DB_PASSWORD_COPY=" + pw,   // dedupe
+		"RANDOM_BLOB=" + blob,      // no keyword, no rule — entropy fallback
+		"GREETING=a plain sentence with spaces", // space skip
+		"LOW_ENTROPY=aaaabbbbaaaabbbb",          // below threshold
+	}
+	got := envSecrets(env, det, 3.3)
+	if len(got) != 3 {
+		t.Fatalf("got %d hits: %+v", len(got), got)
+	}
+	if got[2].Name != "RANDOM_BLOB" || got[2].Rule != "high-entropy" || got[2].Secret != blob {
+		t.Fatalf("entropy hit: %+v", got[2])
+	}
+	if got[0].Name != "MY_CI_TOKEN" || got[0].Rule != "github-pat" || got[0].Secret != key {
+		t.Fatalf("token hit: %+v", got[0])
+	}
+	if got[1].Name != "DB_PASSWORD" || got[1].Secret != pw {
+		t.Fatalf("password hit: %+v", got[1])
+	}
+}
+
+func TestSetupCmd(t *testing.T) {
+	f := t.TempDir() + "/secrets"
+	os.WriteFile(f, []byte("preexisting-literal-abc123\n"), 0o600)
+	t.Setenv("HYGIENICS_TEST_TOKEN", key)
+	if err := setupCmd([]string{"-secrets", f}); err != nil {
+		t.Fatal(err)
+	}
+	lits, _ := loadLiterals(f)
+	found := false
+	for _, l := range lits {
+		if string(l) == key {
+			found = true
+		}
+	}
+	if !found || string(lits[0]) != "preexisting-literal-abc123" {
+		t.Fatalf("lits=%d, key found=%v", len(lits), found)
+	}
+	// second run must not duplicate
+	if err := setupCmd([]string{"-secrets", f}); err != nil {
+		t.Fatal(err)
+	}
+	n := 0
+	lits, _ = loadLiterals(f)
+	for _, l := range lits {
+		if string(l) == key {
+			n++
+		}
+	}
+	if n != 1 {
+		t.Fatalf("key appears %d times after rerun", n)
+	}
+}
