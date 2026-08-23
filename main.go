@@ -5,6 +5,7 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
@@ -144,6 +145,12 @@ func reject(w http.ResponseWriter, msg string) {
 }
 
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "secret" {
+		if err := secretCmd(os.Args[2:]); err != nil {
+			log.Fatal(err)
+		}
+		return
+	}
 	home, _ := os.UserHomeDir()
 	defaultSecrets := filepath.Join(home, ".config", "hygienics", "secrets")
 	listen := flag.String("listen", "127.0.0.1:8787", "address to listen on")
@@ -151,6 +158,22 @@ func main() {
 	mode := flag.String("mode", "redact", "redact | block")
 	rules := flag.String("config", "", "gitleaks-format TOML rule config (default: embedded gitleaks rules)")
 	secrets := flag.String("secrets", defaultSecrets, "file with exact secret strings, one per line")
+	flag.Usage = func() {
+		fmt.Fprint(flag.CommandLine.Output(), `Usage:
+  hygienics [options]              start the proxy
+  hygienics secret add             add a secret to the secrets file
+  hygienics secret remove          remove a secret from the secrets file
+  hygienics secret list            show each secret in a masked form
+  hygienics secret path           show the path of the secrets file
+
+The add and remove commands show the prompt "enter secret".
+Type the secret, then push Enter.
+The secret does not go into the shell history.
+
+Options:
+`)
+		flag.PrintDefaults()
+	}
 	flag.Parse()
 	upstream, err := url.Parse(*up)
 	if err != nil {
@@ -169,4 +192,81 @@ func main() {
 	}
 	log.Printf("hygienics listening on %s → %s (mode=%s)", *listen, upstream, *mode)
 	log.Fatal(http.ListenAndServe(*listen, newProxy(upstream, s, *mode == "block")))
+}
+
+// secretCmd manages the literal-secrets file:
+//
+//	hygienics secret [-secrets file] add|remove|list|path
+//
+// add/remove prompt for the secret on stdin so it stays out of shell history;
+// an argument is refused.
+func secretCmd(args []string) error {
+	home, _ := os.UserHomeDir()
+	fs := flag.NewFlagSet("secret", flag.ExitOnError)
+	path := fs.String("secrets", filepath.Join(home, ".config", "hygienics", "secrets"), "file with exact secret strings, one per line")
+	fs.Parse(args)
+	verb, value := fs.Arg(0), ""
+	if verb == "add" || verb == "remove" {
+		if fs.NArg() > 1 {
+			return fmt.Errorf("do not give the secret as an argument; the shell history keeps arguments")
+		}
+		fmt.Fprint(os.Stderr, "enter secret: ")
+		line, _ := bufio.NewReader(os.Stdin).ReadString('\n')
+		if value = strings.TrimSpace(line); value == "" {
+			return fmt.Errorf("empty secret")
+		}
+	}
+	data, err := os.ReadFile(*path)
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	lines := strings.Split(strings.TrimRight(string(data), "\n"), "\n")
+	switch verb {
+	case "add":
+		for _, l := range lines {
+			if strings.TrimSpace(l) == value {
+				return nil // already listed
+			}
+		}
+		if err := os.MkdirAll(filepath.Dir(*path), 0o700); err != nil {
+			return err
+		}
+		f, err := os.OpenFile(*path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+		_, err = f.WriteString(value + "\n")
+		return err
+	case "remove":
+		var kept []string
+		for _, l := range lines {
+			if strings.TrimSpace(l) != value {
+				kept = append(kept, l)
+			}
+		}
+		if len(kept) == len(lines) {
+			return fmt.Errorf("secret not found in %s", *path)
+		}
+		out := strings.Join(kept, "\n")
+		if out != "" {
+			out += "\n"
+		}
+		return os.WriteFile(*path, []byte(out), 0o600)
+	case "path":
+		fmt.Println(*path)
+		return nil
+	case "list":
+		// ponytail: masked output; this terminal may itself feed an AI session.
+		for _, l := range lines {
+			l = strings.TrimSpace(l)
+			if l == "" || strings.HasPrefix(l, "#") {
+				continue
+			}
+			fmt.Printf("%s\u2026 (%d chars)\n", l[:min(4, len(l))], len(l))
+		}
+		return nil
+	default:
+		return fmt.Errorf("usage: hygienics secret [-secrets file] add|remove|list|path")
+	}
 }

@@ -101,3 +101,38 @@ func TestLoadLiterals(t *testing.T) {
 		t.Fatalf("lits=%q err=%v", lits, err)
 	}
 }
+
+func TestSecretCmd(t *testing.T) {
+	f := t.TempDir() + "/secrets"
+	val := "example-literal-abc123"
+	run := func(verb string) error { // feed the secret on stdin, as the prompt does
+		in, _ := os.CreateTemp(t.TempDir(), "stdin")
+		in.WriteString(val + "\n")
+		in.Seek(0, 0)
+		defer in.Close()
+		orig := os.Stdin
+		os.Stdin = in
+		defer func() { os.Stdin = orig }()
+		return secretCmd([]string{"-secrets", f, verb})
+	}
+	for range 2 { // second add must dedupe
+		if err := run("add"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if lits, _ := loadLiterals(f); len(lits) != 1 || string(lits[0]) != val {
+		t.Fatalf("lits=%q", lits)
+	}
+	if err := run("remove"); err != nil {
+		t.Fatal(err)
+	}
+	if lits, _ := loadLiterals(f); len(lits) != 0 {
+		t.Fatalf("after remove: %q", lits)
+	}
+	if err := run("remove"); err == nil {
+		t.Fatal("expected not-found error")
+	}
+	if err := secretCmd([]string{"-secrets", f, "add", val}); err == nil {
+		t.Fatal("expected refusal of secret argument")
+	}
+}

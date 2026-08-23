@@ -33,6 +33,19 @@ my-internal-db-password
 
 The proxy removes or stops each request that contains one of these strings. A pattern is not necessary.
 
+Use the `secret` command to change the file:
+
+```sh
+./hygienics secret add       # add a secret
+./hygienics secret remove    # remove a secret
+./hygienics secret list      # show each secret in a masked form
+./hygienics secret path     # show the path of the secrets file
+```
+
+The `add` and `remove` commands show the prompt `enter secret`. Type the secret, then push Enter. The command does not accept the secret as an argument. Thus the secret does not go into the shell history.
+
+Use the `-secrets` option to select a different file: `./hygienics secret -secrets FILE add`.
+
 ### Pattern rules
 
 Give a rule file in the gitleaks format with the `-config` option. Set `useDefault = true` to keep the default rules:
