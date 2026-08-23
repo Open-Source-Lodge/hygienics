@@ -144,7 +144,28 @@ func reject(w http.ResponseWriter, msg string) {
 	fmt.Fprintf(w, `{"type":"error","error":{"type":"invalid_request_error","message":%q}}`, msg)
 }
 
+// completionScript is a bash-style completion function. It also operates in
+// zsh after `bashcompinit`.
+const completionScript = `_hygienics() {
+    local cur="${COMP_WORDS[COMP_CWORD]}" prev="${COMP_WORDS[COMP_CWORD-1]}"
+    case "$prev" in
+        -mode) COMPREPLY=($(compgen -W "redact block" -- "$cur")); return;;
+        -secrets|-config) COMPREPLY=($(compgen -f -- "$cur")); return;;
+    esac
+    if [[ ${COMP_WORDS[1]} == secret ]]; then
+        COMPREPLY=($(compgen -W "add remove list path -secrets" -- "$cur"))
+    else
+        COMPREPLY=($(compgen -W "secret completion help -listen -upstream -mode -config -secrets" -- "$cur"))
+    fi
+}
+complete -F _hygienics hygienics
+`
+
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "completion" {
+		fmt.Print(completionScript)
+		return
+	}
 	if len(os.Args) > 1 && os.Args[1] == "secret" {
 		if err := secretCmd(os.Args[2:]); err != nil {
 			log.Fatal(err)
@@ -164,7 +185,9 @@ func main() {
   hygienics secret add             add a secret to the secrets file
   hygienics secret remove          remove a secret from the secrets file
   hygienics secret list            show each secret in a masked form
-  hygienics secret path           show the path of the secrets file
+  hygienics secret path            show the path of the secrets file
+  hygienics completion             print the shell completion script
+  hygienics help                   show this help
 
 The add and remove commands show the prompt "enter secret".
 Type the secret, then push Enter.
@@ -173,6 +196,10 @@ The secret does not go into the shell history.
 Options:
 `)
 		flag.PrintDefaults()
+	}
+	if len(os.Args) > 1 && os.Args[1] == "help" {
+		flag.Usage()
+		return
 	}
 	flag.Parse()
 	upstream, err := url.Parse(*up)

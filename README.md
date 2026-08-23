@@ -60,6 +60,25 @@ description = "ACME internal token"
 regex = '''acme-[a-z0-9]{12}'''
 ```
 
+## Shell completion
+
+The `completion` command prints a completion script for bash and zsh.
+
+For bash, add this line to `~/.bashrc`:
+
+```sh
+eval "$(hygienics completion)"
+```
+
+For zsh, add these lines to `~/.zshrc`:
+
+```sh
+autoload -U +X bashcompinit && bashcompinit
+eval "$(hygienics completion)"
+```
+
+Then open a new shell. Push Tab to complete the commands and the options.
+
 ## Detection
 
 The default rules come from [gitleaks](https://github.com/gitleaks/gitleaks). The set has approximately 220 rules and includes entropy checks. The proxy replaces each secret with `[REDACTED:<rule>:<hash>]`. The replacement is always the same for the same secret. Thus the prompt cache of Anthropic continues to operate.
