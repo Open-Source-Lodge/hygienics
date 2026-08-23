@@ -1,30 +1,41 @@
 # hygenics
 
-Local proxy that scans everything Claude Code sends to Anthropic for secrets, before it leaves your machine. Redacts them (default) or blocks the request.
+hygenics is a local proxy for Claude Code. The proxy examines each request before the request goes to Anthropic. If the proxy finds a secret, the proxy removes the secret or stops the request.
 
-```sh
-go build -o hygenics .
-./hygenics                          # 127.0.0.1:8787 → api.anthropic.com, mode=redact
-./hygenics -mode block
+## Operation
 
-export ANTHROPIC_BASE_URL=http://127.0.0.1:8787
-claude
-```
+1. Build the program:
+   ```sh
+   go build -o hygenics .
+   ```
+2. Start the proxy:
+   ```sh
+   ./hygenics                # listen on 127.0.0.1:8787, remove secrets
+   ./hygenics -mode block    # stop each request that contains a secret
+   ```
+3. Set the environment variable and start Claude Code:
+   ```sh
+   export ANTHROPIC_BASE_URL=http://127.0.0.1:8787
+   claude
+   ```
 
 ## Custom secrets
 
-**Exact strings** — the easy way. One secret per line in `~/.config/hygenics/secrets`
-(or pass `-secrets path`); `#` comments and blank lines are ignored:
+### Exact strings
+
+Write each secret on one line in the file `~/.config/hygenics/secrets`. Or give a different file with the `-secrets` option. The proxy ignores blank lines and lines that start with `#`:
 
 ```
-# never send these
+# do not send these
 abc123
 my-internal-db-password
 ```
 
-Any request containing one of these is redacted/blocked, no regex needed.
+The proxy removes or stops each request that contains one of these strings. A pattern is not necessary.
 
-**Pattern rules** — pass `-config rules.toml` in gitleaks format, extending the defaults:
+### Pattern rules
+
+Give a rule file in the gitleaks format with the `-config` option. Set `useDefault = true` to keep the default rules:
 
 ```toml
 [extend]
@@ -38,6 +49,6 @@ regex = '''acme-[a-z0-9]{12}'''
 
 ## Detection
 
-Built-in rules come from [gitleaks](https://github.com/gitleaks/gitleaks)' default set (~220 rules, entropy-aware). Redacted values become `[REDACTED:<rule>:<hash>]` — deterministic, so prompt caching keeps working across turns.
+The default rules come from [gitleaks](https://github.com/gitleaks/gitleaks). The set has approximately 220 rules and includes entropy checks. The proxy replaces each secret with `[REDACTED:<rule>:<hash>]`. The replacement is always the same for the same secret. Thus the prompt cache of Anthropic continues to operate.
 
-See `RESEARCH.md` for why a proxy and not hooks.
+Refer to `RESEARCH.md` for the design decisions.

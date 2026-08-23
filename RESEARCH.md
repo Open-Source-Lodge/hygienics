@@ -1,63 +1,63 @@
-# Research: secrets scanning for Claude Code egress
+# Research: how to find secrets in the Claude Code output traffic
 
 Date: 2026-08-23
 
-## Where can we intercept?
+## Points where we can examine the traffic
 
-| Layer | Sees | Can modify | Verdict |
+| Layer | Data that the layer sees | Changes possible | Result |
 |---|---|---|---|
-| Hooks `UserPromptSubmit` / `PreToolUse` | user prompt text, tool *inputs* | yes (`updatedInput`) or block | partial — misses tool results, `@file` mentions, CLAUDE.md, compaction, subagents |
-| Hooks `PostToolUse` | tool results | **no** (read-only) | can't redact what Read/Bash returns |
-| `ANTHROPIC_BASE_URL` → local reverse proxy | **every byte** of every Messages API request (system, messages, tools) | yes, it's our process | **the only complete interception point** |
-| `HTTPS_PROXY` + MITM CA | same as above | yes | needed only for tools that ignore base URL (Cursor/Copilot/Codex) — not for Claude Code |
-| `sandbox.credentials`, `permissions.deny` | file/env reads by tools | block/mask | complementary, built-in, recommend in docs |
-| Anthropic Inference Hooks (Enterprise) | transcript, server-side | allow/deny only | out of scope |
+| Hooks `UserPromptSubmit` / `PreToolUse` | user prompt text, tool inputs | yes (`updatedInput`), or stop | partial — the hooks do not see tool results, `@file` content, CLAUDE.md, compaction data, or subagent traffic |
+| Hook `PostToolUse` | tool results | no (read only) | the hook cannot change the data that the Read or Bash tools return |
+| `ANTHROPIC_BASE_URL` → local reverse proxy | all bytes of each Messages API request (system, messages, tools) | yes, the proxy is our process | **the only point that sees all the data** |
+| `HTTPS_PROXY` + MITM CA | the same data | yes | necessary only for tools that ignore the base URL (Cursor, Copilot, Codex) — not necessary for Claude Code |
+| `sandbox.credentials`, `permissions.deny` | file and environment reads by tools | stop or mask | a good addition; recommend this in the documentation |
+| Anthropic Inference Hooks (Enterprise) | transcript, on the server | permit or deny only | not applicable |
 
-Facts verified from docs (code.claude.com/docs/en/{hooks,network-config,llm-gateway-protocol}.md):
-- `ANTHROPIC_BASE_URL` works with API key **and** claude.ai OAuth login.
-- Requests are standard `POST /v1/messages` JSON; responses are SSE with `ping` keep-alives that must be forwarded (300 s idle timeout).
-- Non-model traffic (telemetry, feature flags) still hits api.anthropic.com; `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1` stops it.
-- anthropics/claude-code#29434 (closed, not planned): no rewrite channel for everything via hooks — which is why every serious prior-art project is a proxy.
+Facts from the documentation (code.claude.com/docs/en/{hooks,network-config,llm-gateway-protocol}.md):
+- `ANTHROPIC_BASE_URL` operates with an API key and with claude.ai OAuth login.
+- Each request is standard `POST /v1/messages` JSON. Each response is an SSE stream with `ping` messages. The proxy must send the `ping` messages through. The idle timeout is 300 seconds.
+- Telemetry and feature-flag traffic also goes to api.anthropic.com. Set `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1` to stop this traffic.
+- Issue anthropics/claude-code#29434 (closed, not planned): hooks cannot change all the data. Thus each applicable known tool is a proxy.
 
-**Decision: build a local reverse proxy behind `ANTHROPIC_BASE_URL`.** Hooks optional later as a cheap early warning.
+**Decision: make a local reverse proxy and set `ANTHROPIC_BASE_URL` to it.** Hooks are a possible addition for early warnings.
 
-## Design constraints learned
+## Design constraints
 
-- Claude Code resends the whole conversation every turn (100 KB–1 MB). gitleaks full rule set ≈ 5 MB/s → ~20 ms/100 KB, ~200 ms/MB. Fine, but cache: hash each content block, memoize scan results; only new blocks get scanned.
-- Redaction must be **deterministic** (same secret → same placeholder, persisted per session) or it breaks Anthropic prompt caching and confuses the model.
-- Redact only JSON string values (walk the tree); tool results often contain JSON-inside-strings — scan decoded strings.
-- Scan `system` and `tools` blocks too (CLAUDE.md contents ride along every turn).
-- Block mode = return an error response to Claude Code with a human-readable message.
-- Streaming responses pass through untouched (we scan outbound only, v1).
+- Claude Code sends the full conversation in each turn (100 KB to 1 MB). The full gitleaks rule set scans approximately 5 MB/s. This is approximately 20 ms for each 100 KB. This speed is sufficient. A cache can decrease the scan time. Calculate a hash for each content block. Keep the scan result for each hash. Then scan only the new blocks.
+- The replacement of a secret must always be the same. If the replacement changes, the Anthropic prompt cache stops and the model becomes confused.
+- Change only JSON string values. Walk the JSON tree. Tool results can contain JSON in strings. Scan the decoded strings.
+- Also scan the `system` and `tools` blocks. The CLAUDE.md content goes with each turn.
+- Block mode: send an error response to Claude Code with a message that a person can read.
+- The response stream goes through without changes. Version 1 scans only the output traffic.
 
-## Prior art (closest first)
+## Related tools
 
-- WangYihang/LLM-Redactor — Go, embeds gitleaks as library, HTTPS_PROXY based. 11★.
-- larsderidder/contextio — TS, zero deps, `ANTHROPIC_BASE_URL` proxy, reversible redaction incl. SSE rewrite. 30★, MIT.
-- GuthL/KeyClaw — Rust MITM, own detectors + entropy. 6★.
-- paroque28/claude-code-redact — Python, proxy or hook mode. 3★.
-- coo-quack/sensitive-canary, l-mb/claude-code-redaction-hooks — hook-based; the latter's README warns hooks can't cover egress.
-- Commercial (cloud-side, not local): Nightfall, Pangea, Cloudflare AI Gateway DLP, Portkey, LiteLLM (secret detection is enterprise-only).
+- WangYihang/LLM-Redactor — Go, contains gitleaks as a library, uses HTTPS_PROXY. 11 stars.
+- larsderidder/contextio — TypeScript, no dependencies, `ANTHROPIC_BASE_URL` proxy, reversible replacement, includes SSE changes. 30 stars, MIT.
+- GuthL/KeyClaw — Rust MITM, own detectors and entropy checks. 6 stars.
+- paroque28/claude-code-redact — Python, proxy mode or hook mode. 3 stars.
+- coo-quack/sensitive-canary, l-mb/claude-code-redaction-hooks — hook tools. The second README gives a warning: hooks cannot control all the output traffic.
+- Commercial tools (in the cloud, not local): Nightfall, Pangea, Cloudflare AI Gateway DLP, Portkey, LiteLLM (the secret detection is only in the enterprise version).
 
-Nothing mature and local exists. Space is open.
+No tool is local and mature. The area is open.
 
 ## Rule database
 
-**Use gitleaks `config/gitleaks.toml`** — 222 rules, MIT, RE2 syntax (no lookaround → loads into Go/Rust/Hyperscan; JS needs minor care), `keywords` prefilter for Aho-Corasick, 130 rules carry entropy thresholds. Parseable from any language.
-- betterleaks: newer fork by gitleaks' original author, same format + extras. Track it.
-- secrets-patterns-db: 1,610 YAML regexes, CC-BY-SA, unmaintained, noisy — use only `confidence: high` for gap-filling.
-- trufflehog: AGPL, detectors are Go code → don't link.
-- detect-secrets (27 plugins, Python), secretlint (~33 rules, TS): smaller, not portable.
+**Use the gitleaks file `config/gitleaks.toml`.** The file has 222 rules, an MIT license, and RE2 syntax. RE2 syntax has no lookaround. Thus Go, Rust, and Hyperscan can read the rules. JavaScript is possible with small changes. The `keywords` field gives a fast first filter. 130 rules have entropy limits. All languages can read the TOML format.
+- betterleaks: a new fork from the first gitleaks author. The same format with additions. Monitor this project.
+- secrets-patterns-db: 1,610 YAML patterns, CC-BY-SA license, not maintained, many false alerts. Use only the `confidence: high` patterns to fill gaps.
+- trufflehog: AGPL license. The detectors are Go code. Do not link this library.
+- detect-secrets (27 plugins, Python) and secretlint (approximately 33 rules, TypeScript): small sets, not portable.
 
 ## Language options
 
 | | Proxy | Engine | Distribution | Notes |
 |---|---|---|---|---|
-| **Go** | stdlib `httputil.ReverseProxy`, auto-flushes SSE | link gitleaks directly (`detect.NewDetector`) | single static binary | shortest path; LLM-Redactor proves it |
-| **Rust** | axum + hyper | `regex::RegexSet` + `aho-corasick`, parse gitleaks TOML | single binary | fastest scan; more code to write (reimplement gitleaks semantics) |
-| **TypeScript** | undici fetch + stream pipe, zero deps | parse gitleaks TOML (regex dialect caveats) or `@secretlint/core` | npm / npx, same ecosystem as Claude Code hooks & plugins | easiest install for Claude Code users (`npx`), slowest scan |
-| **Python** | starlette + httpx, or mitmproxy addon | detect-secrets / llm-guard | pip; heavier runtime | best for MITM later (mitmproxy), weakest rule DB |
+| **Go** | `httputil.ReverseProxy` from the standard library, automatic SSE flush | use gitleaks as a library (`detect.NewDetector`) | one static binary | the shortest path; LLM-Redactor shows that this operates |
+| **Rust** | axum + hyper | `regex::RegexSet` + `aho-corasick`, read the gitleaks TOML | one binary | the fastest scan; more code is necessary (a new copy of the gitleaks functions) |
+| **TypeScript** | undici fetch + stream pipe, no dependencies | read the gitleaks TOML (small regex differences) or `@secretlint/core` | npm / npx, the same system as the Claude Code hooks and plugins | the easiest installation for Claude Code users (`npx`), the slowest scan |
+| **Python** | starlette + httpx, or a mitmproxy addon | detect-secrets / llm-guard | pip; a large runtime | the best option for MITM in the future (mitmproxy), the smallest rule set |
 
 ## Decision
 
-**Go.** Reverse proxy on stdlib, gitleaks linked as a library, single binary.
+**Go.** A reverse proxy on the standard library, gitleaks as a library, one binary.
