@@ -202,3 +202,13 @@ func TestSetupCmd(t *testing.T) {
 		t.Fatalf("key appears %d times after rerun", n)
 	}
 }
+
+func TestMask(t *testing.T) {
+	if got := mask("short"); got != "(5 chars)" {
+		t.Errorf("mask short = %q", got)
+	}
+	long := strings.Repeat("A", 4) + strings.Repeat("x", 16) // built at runtime, no literal token
+	if got := mask(long); got != "AAAA… (20 chars)" {
+		t.Errorf("mask long = %q", got)
+	}
+}

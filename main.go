@@ -33,6 +33,15 @@ type scanner struct {
 
 type hit struct{ RuleID, Secret string }
 
+// mask gives a safe preview of a secret: the first 4 characters and the
+// length. Enough to identify it, never enough to leak it.
+func mask(s string) string {
+	if len(s) <= 8 {
+		return fmt.Sprintf("(%d chars)", len(s))
+	}
+	return fmt.Sprintf("%s\u2026 (%d chars)", s[:4], len(s))
+}
+
 // scan returns the body with secrets replaced by deterministic placeholders
 // and the list of hits. Same secret → same placeholder every turn, which keeps
 // Anthropic prompt caching intact and the model's view consistent.
@@ -126,10 +135,10 @@ func newProxy(upstream *url.URL, s *scanner, block bool) http.Handler {
 		}
 		clean, hits := s.scan(body)
 		for _, h := range hits {
-			log.Printf("%s %s: secret detected (%s)", r.Method, r.URL.Path, h.RuleID)
+			log.Printf("%s %s: secret detected (%s %s)", r.Method, r.URL.Path, h.RuleID, mask(h.Secret))
 		}
 		if block && len(hits) > 0 {
-			reject(w, fmt.Sprintf("hygienics: request blocked, %d secret(s) detected (%s)", len(hits), hits[0].RuleID))
+			reject(w, fmt.Sprintf("hygienics: request blocked, %d secret(s) detected (%s %s)", len(hits), hits[0].RuleID, mask(hits[0].Secret)))
 			return
 		}
 		r.Body = io.NopCloser(bytes.NewReader(clean))
