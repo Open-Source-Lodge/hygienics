@@ -1,4 +1,4 @@
-module hygenics
+module hygienics
 
 go 1.26.5
 

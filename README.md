@@ -1,17 +1,17 @@
-# hygenics
+# hygienics
 
-hygenics is a local proxy for Claude Code. The proxy examines each request before the request goes to Anthropic. If the proxy finds a secret, the proxy removes the secret or stops the request.
+hygienics is a local proxy for Claude Code. The proxy examines each request before the request goes to Anthropic. If the proxy finds a secret, the proxy removes the secret or stops the request.
 
 ## Operation
 
 1. Build the program:
    ```sh
-   go build -o hygenics .
+   go build -o hygienics .
    ```
 2. Start the proxy:
    ```sh
-   ./hygenics                # listen on 127.0.0.1:8787, remove secrets
-   ./hygenics -mode block    # stop each request that contains a secret
+   ./hygienics                # listen on 127.0.0.1:8787, remove secrets
+   ./hygienics -mode block    # stop each request that contains a secret
    ```
 3. Set the environment variable and start Claude Code:
    ```sh
@@ -23,7 +23,7 @@ hygenics is a local proxy for Claude Code. The proxy examines each request befor
 
 ### Exact strings
 
-Write each secret on one line in the file `~/.config/hygenics/secrets`. Or give a different file with the `-secrets` option. The proxy ignores blank lines and lines that start with `#`:
+Write each secret on one line in the file `~/.config/hygienics/secrets`. Or give a different file with the `-secrets` option. The proxy ignores blank lines and lines that start with `#`:
 
 ```
 # do not send these

@@ -1,4 +1,4 @@
-// hygenics: local reverse proxy for Claude Code that scans every outbound
+// hygienics: local reverse proxy for Claude Code that scans every outbound
 // Messages API request for secrets before it leaves the machine.
 //
 //	export ANTHROPIC_BASE_URL=http://127.0.0.1:8787
@@ -114,12 +114,12 @@ func newProxy(upstream *url.URL, s *scanner, block bool) http.Handler {
 			return
 		}
 		if r.Header.Get("Content-Encoding") != "" {
-			reject(w, "hygenics: cannot scan encoded request body")
+			reject(w, "hygienics: cannot scan encoded request body")
 			return
 		}
 		body, err := io.ReadAll(r.Body)
 		if err != nil {
-			reject(w, "hygenics: "+err.Error())
+			reject(w, "hygienics: "+err.Error())
 			return
 		}
 		clean, hits := s.scan(body)
@@ -127,7 +127,7 @@ func newProxy(upstream *url.URL, s *scanner, block bool) http.Handler {
 			log.Printf("%s %s: secret detected (%s)", r.Method, r.URL.Path, h.RuleID)
 		}
 		if block && len(hits) > 0 {
-			reject(w, fmt.Sprintf("hygenics: request blocked, %d secret(s) detected (%s)", len(hits), hits[0].RuleID))
+			reject(w, fmt.Sprintf("hygienics: request blocked, %d secret(s) detected (%s)", len(hits), hits[0].RuleID))
 			return
 		}
 		r.Body = io.NopCloser(bytes.NewReader(clean))
@@ -145,7 +145,7 @@ func reject(w http.ResponseWriter, msg string) {
 
 func main() {
 	home, _ := os.UserHomeDir()
-	defaultSecrets := filepath.Join(home, ".config", "hygenics", "secrets")
+	defaultSecrets := filepath.Join(home, ".config", "hygienics", "secrets")
 	listen := flag.String("listen", "127.0.0.1:8787", "address to listen on")
 	up := flag.String("upstream", "https://api.anthropic.com", "upstream API base URL")
 	mode := flag.String("mode", "redact", "redact | block")
@@ -167,6 +167,6 @@ func main() {
 	} else if !os.IsNotExist(err) || *secrets != defaultSecrets {
 		log.Fatal(err) // explicit -secrets path must exist; missing default is fine
 	}
-	log.Printf("hygenics listening on %s → %s (mode=%s)", *listen, upstream, *mode)
+	log.Printf("hygienics listening on %s → %s (mode=%s)", *listen, upstream, *mode)
 	log.Fatal(http.ListenAndServe(*listen, newProxy(upstream, s, *mode == "block")))
 }
