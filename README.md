@@ -1,5 +1,7 @@
 # hygienics
 
+Work in progress, subject to change.
+
 hygienics is a local proxy for Claude Code. The proxy examines each request before the request goes to Anthropic. If the proxy finds a secret, the proxy removes the secret or stops the request.
 
 ## Operation
