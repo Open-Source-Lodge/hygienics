@@ -26,6 +26,8 @@ import (
 	"github.com/zricethezav/gitleaks/v8/detect"
 )
 
+const version = "0.1.0"
+
 type scanner struct {
 	det      *detect.Detector
 	literals [][]byte // exact strings that must never leave the machine
@@ -147,6 +149,55 @@ func newProxy(upstream *url.URL, s *scanner, block bool) http.Handler {
 	})
 }
 
+// rollingLog appends to a file and keeps only the newest limit lines.
+type rollingLog struct {
+	path  string
+	limit int
+	f     *os.File // opened O_APPEND: writes always land at EOF, even after a trim rewrite
+	count int
+}
+
+func openRollingLog(path string, limit int) (*rollingLog, error) {
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
+	if err != nil {
+		return nil, err
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		f.Close()
+		return nil, err
+	}
+	return &rollingLog{path: path, limit: limit, f: f, count: bytes.Count(data, []byte("\n"))}, nil
+}
+
+func (r *rollingLog) Write(p []byte) (int, error) {
+	n, err := r.f.Write(p)
+	r.count += bytes.Count(p[:n], []byte("\n"))
+	// ponytail: 10% slack so the O(file) trim rewrite amortizes instead of
+	// firing on every line once the file is full.
+	if err == nil && r.count > r.limit+r.limit/10 {
+		err = r.trim()
+	}
+	return n, err
+}
+
+// trim rewrites the file with only the last limit lines.
+func (r *rollingLog) trim() error {
+	data, err := os.ReadFile(r.path)
+	if err != nil {
+		return err
+	}
+	keep := data
+	for extra := bytes.Count(data, []byte("\n")) - r.limit; extra > 0; extra-- {
+		keep = keep[bytes.IndexByte(keep, '\n')+1:]
+	}
+	if err := os.WriteFile(r.path, keep, 0o600); err != nil {
+		return err
+	}
+	r.count = r.limit
+	return nil
+}
+
 // reject answers in the Anthropic error format so Claude Code shows the message.
 func reject(w http.ResponseWriter, msg string) {
 	w.Header().Set("Content-Type", "application/json")
@@ -160,14 +211,14 @@ const completionScript = `_hygienics() {
     local cur="${COMP_WORDS[COMP_CWORD]}" prev="${COMP_WORDS[COMP_CWORD-1]}"
     case "$prev" in
         -mode) COMPREPLY=($(compgen -W "redact block" -- "$cur")); return;;
-        -secrets|-config) COMPREPLY=($(compgen -f -- "$cur")); return;;
+        -secrets|-config|-log) COMPREPLY=($(compgen -f -- "$cur")); return;;
     esac
     if [[ ${COMP_WORDS[1]} == secret ]]; then
         COMPREPLY=($(compgen -W "add remove list path -secrets" -- "$cur"))
     elif [[ ${COMP_WORDS[1]} == setup ]]; then
         COMPREPLY=($(compgen -W "-secrets -entropy" -- "$cur"))
     else
-        COMPREPLY=($(compgen -W "secret setup completion help -listen -upstream -mode -config -secrets" -- "$cur"))
+        COMPREPLY=($(compgen -W "secret setup completion help -listen -upstream -mode -config -secrets -log -log-lines" -- "$cur"))
     fi
 }
 complete -F _hygienics hygienics
@@ -197,8 +248,12 @@ func main() {
 	mode := flag.String("mode", "redact", "redact | block")
 	rules := flag.String("config", "", "gitleaks-format TOML rule config (default: embedded gitleaks rules)")
 	secrets := flag.String("secrets", defaultSecrets, "file with exact secret strings, one per line")
+	logFile := flag.String("log", "", "also append log output to this file (rolling)")
+	logLines := flag.Int("log-lines", 10000, "maximum number of lines kept in the log file")
 	flag.Usage = func() {
-		fmt.Fprint(flag.CommandLine.Output(), `Usage:
+		fmt.Fprint(flag.CommandLine.Output(), `hygienics `+version+`
+
+Usage:
   hygienics [options]              start the proxy
   hygienics secret add             add a secret to the secrets file
   hygienics secret remove          remove a secret from the secrets file
@@ -221,6 +276,13 @@ Options:
 		return
 	}
 	flag.Parse()
+	if *logFile != "" {
+		rl, err := openRollingLog(*logFile, *logLines)
+		if err != nil {
+			log.Fatal(err)
+		}
+		log.SetOutput(io.MultiWriter(os.Stderr, rl))
+	}
 	upstream, err := url.Parse(*up)
 	if err != nil {
 		log.Fatal(err)
@@ -236,7 +298,7 @@ Options:
 	} else if !os.IsNotExist(err) || *secrets != defaultSecrets {
 		log.Fatal(err) // explicit -secrets path must exist; missing default is fine
 	}
-	log.Printf("hygienics listening on %s → %s (mode=%s)", *listen, upstream, *mode)
+	log.Printf("hygienics %s listening on %s → %s (mode=%s)", version, *listen, upstream, *mode)
 	log.Fatal(http.ListenAndServe(*listen, newProxy(upstream, s, *mode == "block")))
 }
 
