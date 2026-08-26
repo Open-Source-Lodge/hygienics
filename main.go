@@ -14,6 +14,7 @@ import (
 	"io"
 	"log"
 	"math"
+	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -298,8 +299,13 @@ Options:
 	} else if !os.IsNotExist(err) || *secrets != defaultSecrets {
 		log.Fatal(err) // explicit -secrets path must exist; missing default is fine
 	}
+	// ponytail: the port bind is the "already running" check; no pidfile needed.
+	ln, err := net.Listen("tcp", *listen)
+	if err != nil {
+		log.Fatalf("cannot listen on %s: %v — is hygienics already running?", *listen, err)
+	}
 	log.Printf("hygienics %s listening on %s → %s (mode=%s)", version, *listen, upstream, *mode)
-	log.Fatal(http.ListenAndServe(*listen, newProxy(upstream, s, *mode == "block")))
+	log.Fatal(http.Serve(ln, newProxy(upstream, s, *mode == "block")))
 }
 
 // secretCmd manages the literal-secrets file:
