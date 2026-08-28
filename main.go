@@ -118,13 +118,22 @@ func loadLiterals(path string) ([][]byte, error) {
 }
 
 // keyFileLiterals reads well-known credential files (private keys in ~/.ssh,
-// ~/.aws/credentials) and returns every long line as a literal. A PEM body
+// ~/.aws/credentials, ~/.netrc, ~/.npmrc, ...) and returns every long line as a literal. A PEM body
 // line is one literal; a `name = value` line gives its value. The proxy scans
 // the raw JSON body, so each key line still matches when the file is pasted.
 // Nothing is written to disk: the keys stay in memory.
 func keyFileLiterals(home string) [][]byte {
 	// ponytail: fixed path list; add a flag when someone needs more locations.
-	paths := []string{filepath.Join(home, ".aws", "credentials")}
+	var paths []string
+	for _, rel := range []string{
+		".aws/credentials", ".netrc", ".git-credentials", ".config/git/credentials",
+		".npmrc", ".pypirc", ".docker/config.json", ".kube/config",
+		".config/gh/hosts.yml", ".fly/config.yml",
+		".config/gcloud/application_default_credentials.json",
+		".terraform.d/credentials.tfrc.json", ".cargo/credentials.toml", ".vault-token",
+	} {
+		paths = append(paths, filepath.Join(home, filepath.FromSlash(rel)))
+	}
 	ssh, _ := filepath.Glob(filepath.Join(home, ".ssh", "*"))
 	for _, p := range ssh {
 		b := filepath.Base(p)
@@ -145,7 +154,7 @@ func keyFileLiterals(home string) [][]byte {
 				continue
 			}
 			// Trim JSON/TOML/YAML decoration: `"value",` → value.
-			if v := strings.Trim(f[len(f)-1], `"',`); len(v) >= 20 {
+			if v := strings.Trim(f[len(f)-1], `"',{}[]`); len(v) >= 20 {
 				out = append(out, []byte(v))
 			}
 		}
@@ -368,7 +377,7 @@ Options:
 	}
 	if keys := keyFileLiterals(home); len(keys) > 0 {
 		s.literals = append(s.literals, keys...)
-		log.Printf("loaded %d line(s) from key files in ~/.ssh and ~/.aws", len(keys))
+		log.Printf("loaded %d line(s) from key and credential files in home", len(keys))
 	}
 	// ponytail: the port bind is the "already running" check; no pidfile needed.
 	ln, err := net.Listen("tcp", *listen)

@@ -61,7 +61,7 @@ Use the `-secrets` option to select a different file: `./hygienics secret -secre
 
 ### Key files
 
-At start, the proxy reads the private keys in `~/.ssh` and the file `~/.aws/credentials`. The proxy adds each long line of these files to the secrets in memory. The proxy does not write the keys to the secrets file. If a key goes into a request, the proxy redacts the key line by line.
+At start, the proxy reads the private keys in `~/.ssh` and these credential files: `~/.aws/credentials`, `~/.netrc`, `~/.git-credentials`, `~/.config/git/credentials`, `~/.npmrc`, `~/.pypirc`, `~/.docker/config.json`, `~/.kube/config`, `~/.config/gh/hosts.yml`, `~/.fly/config.yml`, `~/.config/gcloud/application_default_credentials.json`, `~/.terraform.d/credentials.tfrc.json`, `~/.cargo/credentials.toml`, `~/.vault-token`. The proxy adds each long value in these files to the secrets in memory. A long public value in these files (for example a WireGuard public key) is also redacted. This is safe. The proxy does not write the keys to the secrets file. If a key goes into a request, the proxy redacts the key line by line.
 
 ### Automatic setup
 
