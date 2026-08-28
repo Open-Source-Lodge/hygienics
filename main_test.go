@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -247,5 +248,25 @@ func TestLastLines(t *testing.T) {
 	}
 	if got := string(lastLines([]byte("a\nb\n"), 5)); got != "a\nb\n" {
 		t.Fatalf("got %q", got)
+	}
+}
+
+func TestKeyFileLiterals(t *testing.T) {
+	home := t.TempDir()
+	os.MkdirAll(filepath.Join(home, ".ssh"), 0o700)
+	os.MkdirAll(filepath.Join(home, ".aws"), 0o700)
+	line := strings.Repeat("QUJD", 16)
+	os.WriteFile(filepath.Join(home, ".ssh", "id_ed25519"), []byte("-----BEGIN OPENSSH PRIVATE KEY-----\n"+line+"\nc2hvcnQ=\n-----END OPENSSH PRIVATE KEY-----\n"), 0o600)
+	os.WriteFile(filepath.Join(home, ".ssh", "id_ed25519.pub"), []byte("ssh-ed25519 "+line+" me@host\n"), 0o644)
+	os.WriteFile(filepath.Join(home, ".aws", "credentials"), []byte("[default]\naws_secret_access_key = "+line+"X\n"), 0o600)
+	got := keyFileLiterals(home)
+	want := []string{line + "X", line}
+	if len(got) != len(want) {
+		t.Fatalf("got %d literals, want %d: %q", len(got), len(want), got)
+	}
+	for i := range want {
+		if string(got[i]) != want[i] {
+			t.Errorf("literal %d = %q, want %q", i, got[i], want[i])
+		}
 	}
 }

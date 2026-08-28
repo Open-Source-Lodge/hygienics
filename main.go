@@ -117,6 +117,41 @@ func loadLiterals(path string) ([][]byte, error) {
 	return out, nil
 }
 
+// keyFileLiterals reads well-known credential files (private keys in ~/.ssh,
+// ~/.aws/credentials) and returns every long line as a literal. A PEM body
+// line is one literal; a `name = value` line gives its value. The proxy scans
+// the raw JSON body, so each key line still matches when the file is pasted.
+// Nothing is written to disk: the keys stay in memory.
+func keyFileLiterals(home string) [][]byte {
+	// ponytail: fixed path list; add a flag when someone needs more locations.
+	paths := []string{filepath.Join(home, ".aws", "credentials")}
+	ssh, _ := filepath.Glob(filepath.Join(home, ".ssh", "*"))
+	for _, p := range ssh {
+		b := filepath.Base(p)
+		if strings.HasSuffix(b, ".pub") || b == "config" || b == "authorized_keys" || strings.HasPrefix(b, "known_hosts") {
+			continue
+		}
+		paths = append(paths, p)
+	}
+	var out [][]byte
+	for _, p := range paths {
+		data, err := os.ReadFile(p)
+		if err != nil {
+			continue
+		}
+		for _, line := range strings.Split(string(data), "\n") {
+			f := strings.Fields(line)
+			if len(f) == 0 {
+				continue
+			}
+			if v := f[len(f)-1]; len(v) >= 20 {
+				out = append(out, []byte(v))
+			}
+		}
+	}
+	return out
+}
+
 func newProxy(upstream *url.URL, s *scanner, block bool) http.Handler {
 	rp := &httputil.ReverseProxy{Rewrite: func(pr *httputil.ProxyRequest) {
 		pr.SetURL(upstream)
@@ -329,6 +364,10 @@ Options:
 		log.Printf("loaded %d literal secret(s) from %s", len(lits), *secrets)
 	} else if !os.IsNotExist(err) || *secrets != defaultSecrets {
 		log.Fatal(err) // explicit -secrets path must exist; missing default is fine
+	}
+	if keys := keyFileLiterals(home); len(keys) > 0 {
+		s.literals = append(s.literals, keys...)
+		log.Printf("loaded %d line(s) from key files in ~/.ssh and ~/.aws", len(keys))
 	}
 	// ponytail: the port bind is the "already running" check; no pidfile needed.
 	ln, err := net.Listen("tcp", *listen)

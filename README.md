@@ -59,6 +59,10 @@ Use `-log <path>` when you start the proxy to change the file. Use `-log ""` to 
 
 Use the `-secrets` option to select a different file: `./hygienics secret -secrets FILE add`.
 
+### Key files
+
+At start, the proxy reads the private keys in `~/.ssh` and the file `~/.aws/credentials`. The proxy adds each long line of these files to the secrets in memory. The proxy does not write the keys to the secrets file. If a key goes into a request, the proxy redacts the key line by line.
+
 ### Automatic setup
 
 The `setup` command examines the environment variables:
