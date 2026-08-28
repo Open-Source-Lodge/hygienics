@@ -258,9 +258,9 @@ func TestKeyFileLiterals(t *testing.T) {
 	line := strings.Repeat("QUJD", 16)
 	os.WriteFile(filepath.Join(home, ".ssh", "id_ed25519"), []byte("-----BEGIN OPENSSH PRIVATE KEY-----\n"+line+"\nc2hvcnQ=\n-----END OPENSSH PRIVATE KEY-----\n"), 0o600)
 	os.WriteFile(filepath.Join(home, ".ssh", "id_ed25519.pub"), []byte("ssh-ed25519 "+line+" me@host\n"), 0o644)
-	os.WriteFile(filepath.Join(home, ".aws", "credentials"), []byte("[default]\naws_secret_access_key = "+line+"X\n"), 0o600)
+	os.WriteFile(filepath.Join(home, ".aws", "credentials"), []byte("[default]\naws_secret_access_key = "+line+"X\naws_session_token = \""+line+"J\",\n"), 0o600)
 	got := keyFileLiterals(home)
-	want := []string{line + "X", line}
+	want := []string{line + "X", line + "J", line}
 	if len(got) != len(want) {
 		t.Fatalf("got %d literals, want %d: %q", len(got), len(want), got)
 	}

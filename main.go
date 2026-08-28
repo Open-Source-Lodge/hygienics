@@ -144,7 +144,8 @@ func keyFileLiterals(home string) [][]byte {
 			if len(f) == 0 {
 				continue
 			}
-			if v := f[len(f)-1]; len(v) >= 20 {
+			// Trim JSON/TOML/YAML decoration: `"value",` → value.
+			if v := strings.Trim(f[len(f)-1], `"',`); len(v) >= 20 {
 				out = append(out, []byte(v))
 			}
 		}
