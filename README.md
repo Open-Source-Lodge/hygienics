@@ -63,6 +63,25 @@ Use the `-secrets` option to select a different file: `./hygienics secret -secre
 
 At start, the proxy reads the private keys in `~/.ssh` and these credential files: `~/.aws/credentials`, `~/.netrc`, `~/.git-credentials`, `~/.config/git/credentials`, `~/.npmrc`, `~/.pypirc`, `~/.docker/config.json`, `~/.kube/config`, `~/.config/gh/hosts.yml`, `~/.fly/config.yml`, `~/.config/gcloud/application_default_credentials.json`, `~/.terraform.d/credentials.tfrc.json`, `~/.cargo/credentials.toml`, `~/.vault-token`. The proxy adds each long value in these files to the secrets in memory. A long public value in these files (for example a WireGuard public key) is also redacted. This is safe. The proxy does not write the keys to the secrets file. If a key goes into a request, the proxy redacts the key line by line.
 
+### Deny file reads in Claude Code
+
+The proxy is the last line of defense. Also stop Claude Code from reading the credential files. Add this to `~/.claude/settings.json`:
+
+```json
+{
+  "permissions": {
+    "deny": [
+      "Read(~/.ssh/**)", "Read(~/.aws/**)", "Read(~/.netrc)", "Read(~/.git-credentials)",
+      "Read(~/.npmrc)", "Read(~/.pypirc)", "Read(~/.docker/config.json)", "Read(~/.kube/**)",
+      "Read(~/.config/gh/**)", "Read(~/.fly/**)", "Read(~/.config/gcloud/**)",
+      "Read(~/.terraform.d/**)", "Read(~/.cargo/credentials.toml)", "Read(~/.vault-token)"
+    ]
+  }
+}
+```
+
+The deny rule stops the Read tool. The proxy redacts the content when it arrives in another way, for example from a shell command.
+
 ### Automatic setup
 
 The `setup` command examines the environment variables:
