@@ -15,9 +15,12 @@ test:
 clean:
 	rm -rf bin
 
-# launchd service: starts at login, restarts on crash
+# Service: launchd on macOS, systemd user unit on Linux.
+# Starts at login, restarts on crash.
 PLIST := $(HOME)/Library/LaunchAgents/local.hygienics.plist
+UNIT := $(HOME)/.config/systemd/user/hygienics.service
 
+ifeq ($(shell uname),Darwin)
 install: build
 	@printf '%s\n' \
 	'<?xml version="1.0" encoding="UTF-8"?>' \
@@ -36,3 +39,25 @@ install: build
 uninstall:
 	launchctl bootout gui/$$(id -u)/local.hygienics 2>/dev/null || true
 	rm -f $(PLIST)
+else
+install: build
+	@mkdir -p $(dir $(UNIT))
+	@printf '%s\n' \
+	'[Unit]' \
+	'Description=hygienics secret-redacting proxy for Claude Code' \
+	'' \
+	'[Service]' \
+	'ExecStart=$(CURDIR)/bin/hygienics' \
+	'Restart=always' \
+	'' \
+	'[Install]' \
+	'WantedBy=default.target' > $(UNIT)
+	systemctl --user daemon-reload
+	systemctl --user enable --now hygienics
+	systemctl --user restart hygienics
+
+uninstall:
+	systemctl --user disable --now hygienics 2>/dev/null || true
+	rm -f $(UNIT)
+	systemctl --user daemon-reload
+endif
