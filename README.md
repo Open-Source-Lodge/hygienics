@@ -46,6 +46,17 @@ Use the `secret` command to change the file:
 
 The `add` and `remove` commands show the prompt `enter secret`. Type the secret, then push Enter. The command does not accept the secret as an argument. Thus the secret does not go into the shell history.
 
+## Review the log
+
+The proxy writes a rolling log to `~/.config/hygienics/hygienics.log`. The log shows each request in which the proxy found a secret. Use the `logs` command to read it:
+
+```sh
+./hygienics logs             # print the full log
+./hygienics logs -n 50       # print the last 50 lines
+```
+
+Use `-log <path>` when you start the proxy to change the file. Use `-log ""` to disable the file. Use `-log-lines` to change the number of lines that the file keeps (default 10000).
+
 Use the `-secrets` option to select a different file: `./hygienics secret -secrets FILE add`.
 
 ### Automatic setup

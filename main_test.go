@@ -144,14 +144,14 @@ func TestEnvSecrets(t *testing.T) {
 	pw := fmt.Sprintf("%x", sha256.Sum256([]byte("hygienics-env-pw")))
 	blob := fmt.Sprintf("%x", sha256.Sum256([]byte("hygienics-env-blob")))
 	env := []string{
-		"MY_CI_TOKEN=" + key,       // known token format
-		"DB_PASSWORD=" + pw,        // name context only
-		"PATH=/usr/bin:/bin",       // boring
-		"SECRET_SOCK=/tmp/" + pw,   // path guard
-		"API_KEY=short",            // too short
-		"LC_SECRET_KEY=" + pw,      // LC_ prefix guard
-		"DB_PASSWORD_COPY=" + pw,   // dedupe
-		"RANDOM_BLOB=" + blob,      // no keyword, no rule — entropy fallback
+		"MY_CI_TOKEN=" + key,                    // known token format
+		"DB_PASSWORD=" + pw,                     // name context only
+		"PATH=/usr/bin:/bin",                    // boring
+		"SECRET_SOCK=/tmp/" + pw,                // path guard
+		"API_KEY=short",                         // too short
+		"LC_SECRET_KEY=" + pw,                   // LC_ prefix guard
+		"DB_PASSWORD_COPY=" + pw,                // dedupe
+		"RANDOM_BLOB=" + blob,                   // no keyword, no rule — entropy fallback
 		"GREETING=a plain sentence with spaces", // space skip
 		"LOW_ENTROPY=aaaabbbbaaaabbbb",          // below threshold
 	}
@@ -238,5 +238,14 @@ func TestRollingLog(t *testing.T) {
 	fmt.Fprintln(rl2, "line 30")
 	if rl2.count < 10 {
 		t.Fatalf("count = %d after reopen, want >= 10", rl2.count)
+	}
+}
+
+func TestLastLines(t *testing.T) {
+	if got := string(lastLines([]byte("a\nb\nc\n"), 2)); got != "b\nc\n" {
+		t.Fatalf("got %q", got)
+	}
+	if got := string(lastLines([]byte("a\nb\n"), 5)); got != "a\nb\n" {
+		t.Fatalf("got %q", got)
 	}
 }

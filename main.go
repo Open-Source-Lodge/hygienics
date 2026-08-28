@@ -188,15 +188,19 @@ func (r *rollingLog) trim() error {
 	if err != nil {
 		return err
 	}
-	keep := data
-	for extra := bytes.Count(data, []byte("\n")) - r.limit; extra > 0; extra-- {
-		keep = keep[bytes.IndexByte(keep, '\n')+1:]
-	}
-	if err := os.WriteFile(r.path, keep, 0o600); err != nil {
+	if err := os.WriteFile(r.path, lastLines(data, r.limit), 0o600); err != nil {
 		return err
 	}
 	r.count = r.limit
 	return nil
+}
+
+// lastLines returns the last n lines of data.
+func lastLines(data []byte, n int) []byte {
+	for extra := bytes.Count(data, []byte("\n")) - n; extra > 0; extra-- {
+		data = data[bytes.IndexByte(data, '\n')+1:]
+	}
+	return data
 }
 
 // reject answers in the Anthropic error format so Claude Code shows the message.
@@ -219,11 +223,29 @@ const completionScript = `_hygienics() {
     elif [[ ${COMP_WORDS[1]} == setup ]]; then
         COMPREPLY=($(compgen -W "-secrets -entropy" -- "$cur"))
     else
-        COMPREPLY=($(compgen -W "secret setup completion help -listen -upstream -mode -config -secrets -log -log-lines" -- "$cur"))
+        COMPREPLY=($(compgen -W "secret setup logs completion help -listen -upstream -mode -config -secrets -log -log-lines" -- "$cur"))
     fi
 }
 complete -F _hygienics hygienics
 `
+
+// logsCmd prints the rolling log file written by the proxy.
+func logsCmd(args []string) error {
+	home, _ := os.UserHomeDir()
+	fs := flag.NewFlagSet("logs", flag.ExitOnError)
+	path := fs.String("log", filepath.Join(home, ".config", "hygienics", "hygienics.log"), "log file to read")
+	n := fs.Int("n", 0, "print only the last N lines (0 = all)")
+	fs.Parse(args)
+	data, err := os.ReadFile(*path)
+	if err != nil {
+		return err
+	}
+	if *n > 0 {
+		data = lastLines(data, *n)
+	}
+	_, err = os.Stdout.Write(data)
+	return err
+}
 
 func main() {
 	if len(os.Args) > 1 && os.Args[1] == "completion" {
@@ -242,14 +264,21 @@ func main() {
 		}
 		return
 	}
+	if len(os.Args) > 1 && os.Args[1] == "logs" {
+		if err := logsCmd(os.Args[2:]); err != nil {
+			log.Fatal(err)
+		}
+		return
+	}
 	home, _ := os.UserHomeDir()
 	defaultSecrets := filepath.Join(home, ".config", "hygienics", "secrets")
+	defaultLog := filepath.Join(home, ".config", "hygienics", "hygienics.log")
 	listen := flag.String("listen", "127.0.0.1:8787", "address to listen on")
 	up := flag.String("upstream", "https://api.anthropic.com", "upstream API base URL")
 	mode := flag.String("mode", "redact", "redact | block")
 	rules := flag.String("config", "", "gitleaks-format TOML rule config (default: embedded gitleaks rules)")
 	secrets := flag.String("secrets", defaultSecrets, "file with exact secret strings, one per line")
-	logFile := flag.String("log", "", "also append log output to this file (rolling)")
+	logFile := flag.String("log", defaultLog, "also append log output to this file (rolling); empty disables")
 	logLines := flag.Int("log-lines", 10000, "maximum number of lines kept in the log file")
 	flag.Usage = func() {
 		fmt.Fprint(flag.CommandLine.Output(), `hygienics `+version+`
@@ -261,6 +290,7 @@ Usage:
   hygienics secret list            show each secret in a masked form
   hygienics secret path            show the path of the secrets file
   hygienics setup                  scan the environment, add found secrets to the secrets file
+  hygienics logs [-n N]            print the log of the running or last proxy (last N lines)
   hygienics completion             print the shell completion script
   hygienics help                   show this help
 
@@ -278,6 +308,7 @@ Options:
 	}
 	flag.Parse()
 	if *logFile != "" {
+		os.MkdirAll(filepath.Dir(*logFile), 0o700)
 		rl, err := openRollingLog(*logFile, *logLines)
 		if err != nil {
 			log.Fatal(err)
