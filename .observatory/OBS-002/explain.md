@@ -1,3 +1,3 @@
-# Why
+# Keep the readme up to date
 
-Simple, uniform text is easy to read for people who do not have English as a first language, and easy for a model to follow. See the "Style" section of `CLAUDE.md`.
+If the readme and the code do not agree, the user does not know what the program does. A change to the behavior of the code also changes the readme.

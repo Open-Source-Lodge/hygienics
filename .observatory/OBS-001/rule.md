@@ -1,3 +1,3 @@
-# No secret-shaped literals in the repository
+# Write documentation in Simplified Technical English
 
-No file holds a string that looks like an API key, a token, a password or a private key. This includes fake or example values. Test code builds such values at run time from parts, so no complete token appears in the source.
+Documentation, comments and help text follow ASD-STE100: short sentences, active voice, simple tenses, no contractions, no idioms, no `-ing` verb forms except in technical names. Code and command output are exempt.
