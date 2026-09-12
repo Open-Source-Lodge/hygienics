@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="hygienics logo">
+  <title>hygienics</title>
+  <!-- shield -->
+  <path d="M64 8 L112 26 V60 C112 92 90 112 64 120 C38 112 16 92 16 60 V26 Z" fill="#0F766E"/>
+  <path d="M64 18 L102 32 V60 C102 86 84 102 64 109 C44 102 26 86 26 60 V32 Z" fill="#14B8A6"/>
+  <!-- message lines -->
+  <rect x="40" y="44" width="48" height="8" rx="4" fill="#FFFFFF" opacity="0.9"/>
+  <!-- redaction bar -->
+  <rect x="36" y="60" width="56" height="12" rx="3" fill="#0B1220"/>
+  <rect x="40" y="80" width="30" height="8" rx="4" fill="#FFFFFF" opacity="0.9"/>
+</svg>
