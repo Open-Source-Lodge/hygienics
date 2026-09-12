@@ -126,7 +126,7 @@ At start, the proxy reads the private keys in `~/.ssh` and these credential file
 
 `~/.aws/credentials`, `~/.netrc`, `~/.git-credentials`, `~/.config/git/credentials`, `~/.npmrc`, `~/.pypirc`, `~/.docker/config.json`, `~/.kube/config`, `~/.config/gh/hosts.yml`, `~/.fly/config.yml`, `~/.config/gcloud/application_default_credentials.json`, `~/.terraform.d/credentials.tfrc.json`, `~/.cargo/credentials.toml`, `~/.vault-token`
 
-The proxy adds each long value in these files to the secrets in memory. A long public value, for example a WireGuard public key, is also redacted. This is safe. The proxy does not write the keys to the secrets file. If a key goes into a request, the proxy redacts the key line by line.
+The proxy adds each long value in these files to the secrets in memory. The proxy also redacts a long public value, for example a WireGuard public key. This is safe. The proxy does not write the keys to the secrets file. If a key goes into a request, the proxy redacts the key line by line.
 
 ### Pattern rules
 
@@ -212,6 +212,6 @@ Then open a new shell. Push Tab to complete the commands and the options.
 ## Limits
 
 - The proxy examines requests, not responses. Streamed responses pass through unchanged.
-- The proxy sees only traffic that goes through `ANTHROPIC_BASE_URL`. Other programs on the machine are not covered.
+- The proxy sees only traffic that goes through `ANTHROPIC_BASE_URL`. The proxy does not cover other programs on the machine.
 - A secret that a rule does not match, and that is not in the secrets file, goes through. Use `hygienics setup` and the secrets file to cover your own values.
 - The placeholder replaces the secret in the text that the model sees. The model can not use the secret. This is the intent.

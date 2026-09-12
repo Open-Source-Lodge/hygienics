@@ -12,7 +12,7 @@ Local reverse proxy that scans Claude Code's outbound Messages API traffic for s
 - **Proxy, not hooks.** Claude Code hooks cannot rewrite tool results, `@file` content, CLAUDE.md, compaction, or subagent traffic (anthropics/claude-code#29434). Only a proxy behind `ANTHROPIC_BASE_URL` sees everything. It works with both API keys and claude.ai OAuth.
 - **Deterministic placeholders.** Same secret must always become the same `[REDACTED:<rule>:<hash>]`, or Anthropic's prompt cache breaks and the model gets confused. Never make redaction random or session-scoped.
 - **Raw-body scanning.** We scan/replace on the raw JSON bytes, not a parsed tree (see `ponytail:` comment in main.go). Valid because secrets don't contain quotes/backslashes.
-- **Rules:** gitleaks default TOML (MIT). Do not link trufflehog (AGPL). Custom: `-config` (gitleaks-format TOML) and `-secrets` (literal strings file, default `~/.config/hygienics/secrets` — note: main.go still reads `~/.config/hygenics/secrets`, old spelling, from before the rename).
+- **Rules:** gitleaks default TOML (MIT). Do not link trufflehog (AGPL). Custom: `-config` (gitleaks-format TOML) and `-secrets` (literal strings file, default `~/.config/hygienics/secrets`).
 - SSE responses pass through untouched; forward `ping` events (300 s idle timeout).
 
 ## Critical: no secret-shaped literals in this repo
