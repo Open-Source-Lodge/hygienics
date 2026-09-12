@@ -1,0 +1,13 @@
+# observatory settings for this repo — check this file in.
+
+# The Claude model that checks the rules.
+model = "claude-opus-5"
+
+# The largest prompt observatory sends, in tokens. A run that would send more stops.
+max_tokens = 200000
+
+# The largest answer observatory accepts from the model, in tokens.
+max_output_tokens = 8000
+
+# true: one request per rule. false: one request for all the rules.
+per_rule = false
