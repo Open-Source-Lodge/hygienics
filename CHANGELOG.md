@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/Open-Source-Lodge/hygienics/compare/v0.2.0...v0.2.1) (2026-09-12)
+
+
+### Bug Fixes
+
+* Improve readme, add logo, and set License ([#7](https://github.com/Open-Source-Lodge/hygienics/issues/7)) ([c2fa018](https://github.com/Open-Source-Lodge/hygienics/commit/c2fa0184fa408fe28d6145f730828654dc386a29))
+
 ## [0.2.0](https://github.com/Open-Source-Lodge/hygienics/compare/v0.1.0...v0.2.0) (2026-09-12)
 
 
