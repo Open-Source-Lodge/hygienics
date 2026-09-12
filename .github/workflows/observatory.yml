@@ -1,0 +1,19 @@
+name: observatory
+
+# Check the changes of a pull request against the rules in .observatory.
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  rules:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # observatory needs the history back to the base branch
+      - uses: Open-Source-Lodge/observatory@v1
+        with:
+          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
