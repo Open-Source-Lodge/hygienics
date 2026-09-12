@@ -1,11 +1,30 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="hygienics logo">
   <title>hygienics</title>
-  <!-- shield -->
-  <path d="M64 8 L112 26 V60 C112 92 90 112 64 120 C38 112 16 92 16 60 V26 Z" fill="#0F766E"/>
-  <path d="M64 18 L102 32 V60 C102 86 84 102 64 109 C44 102 26 86 26 60 V32 Z" fill="#14B8A6"/>
-  <!-- message lines -->
-  <rect x="40" y="44" width="48" height="8" rx="4" fill="#FFFFFF" opacity="0.9"/>
-  <!-- redaction bar -->
-  <rect x="36" y="60" width="56" height="12" rx="3" fill="#0B1220"/>
-  <rect x="40" y="80" width="30" height="8" rx="4" fill="#FFFFFF" opacity="0.9"/>
+  <!-- sparkles (four-point stars) -->
+  <g fill="#0F766E">
+    <path d="M18 11 L21 20 L30 23 L21 26 L18 35 L15 26 L6 23 L15 20 Z"/>
+    <path d="M58 4 L60 10 L66 12 L60 14 L58 20 L56 14 L50 12 L56 10 Z"/>
+    <path d="M102 20 L104.5 27.5 L112 30 L104.5 32.5 L102 40 L99.5 32.5 L92 30 L99.5 27.5 Z"/>
+    <path d="M8 48 L9.5 52.5 L14 54 L9.5 55.5 L8 60 L6.5 55.5 L2 54 L6.5 52.5 Z"/>
+    <path d="M84 12 L85.5 16.5 L90 18 L85.5 19.5 L84 24 L82.5 19.5 L78 18 L82.5 16.5 Z"/>
+  </g>
+  <!-- classic cloud: three bumps on a flat base; the base sits behind the palm -->
+  <g fill="#FFFFFF" stroke="#0F766E" stroke-width="3">
+    <rect x="25" y="56" width="68" height="22"/>
+    <circle cx="35" cy="60" r="11"/>
+    <circle cx="57" cy="48" r="16"/>
+    <circle cx="82" cy="58" r="12"/>
+  </g>
+  <g fill="#FFFFFF" stroke="none">
+    <rect x="25" y="56" width="68" height="22"/>
+    <circle cx="35" cy="60" r="11"/>
+    <circle cx="57" cy="48" r="16"/>
+    <circle cx="82" cy="58" r="12"/>
+  </g>
+  <!-- hand from the side: arm enters from the left, thumb lies across the palm, fingers reach up-right -->
+  <path d="M0 75 L44 71 L60 71 A6 6 0 0 1 67 80 L100 63 A5 5 0 0 1 107 70 L50 105 L21 99 L0 104 Z" fill="#14B8A6" stroke="none"/>
+  <g fill="none" stroke="#0F766E" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M0 75 L44 71 L60 71 A6 6 0 0 1 67 80 L100 63 A5 5 0 0 1 107 70 L50 105 L21 99 L0 104"/>
+    <path d="M67 80 Q62 83 54 83 L38 83"/>
+  </g>
 </svg>
