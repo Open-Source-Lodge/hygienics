@@ -16,7 +16,7 @@ jobs:
         with:
           fetch-depth: 0 # observatory needs the history back to the base branch
       - run: npm install -g @github/copilot
-      - uses: Open-Source-Lodge/observatory@v1
+      - uses: Open-Source-Lodge/observatory@v1.0.1
         env:
           # A fine-grained personal access token with the "Copilot Requests" permission.
           # The token uses the Copilot subscription of its owner, not of the organization.
