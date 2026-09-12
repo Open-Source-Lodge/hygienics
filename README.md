@@ -167,7 +167,7 @@ The deny rule stops the Read tool. The proxy redacts the content when it arrives
 
 ## Logs
 
-The proxy writes a rolling log to `~/.config/hygienics/hygienics.log`. The log shows each request in which the proxy found a secret. The log shows the rule and a masked preview, never the secret.
+The proxy writes a log to `~/.config/hygienics/hygienics.log`. The log rotates. The log shows each request in which the proxy found a secret. The log shows the rule and a masked preview, never the secret.
 
 ```sh
 hygienics logs             # print the full log
@@ -185,7 +185,7 @@ Use `-log PATH` to change the file. Use `-log ""` to disable the file. Use `-log
 | `-mode`      | `redact`                         | `redact` or `block`                                |
 | `-config`    | embedded gitleaks rules          | gitleaks-format TOML rule file                     |
 | `-secrets`   | `~/.config/hygienics/secrets`    | file with exact secret strings, one per line       |
-| `-log`       | `~/.config/hygienics/hygienics.log` | rolling log file; empty disables                |
+| `-log`       | `~/.config/hygienics/hygienics.log` | log file, rotated; empty disables               |
 | `-log-lines` | `10000`                          | maximum number of lines kept in the log file       |
 
 Run `hygienics -h` to see the version and all commands.
@@ -215,7 +215,3 @@ Then open a new shell. Push Tab to complete the commands and the options.
 - The proxy sees only traffic that goes through `ANTHROPIC_BASE_URL`. Other programs on the machine are not covered.
 - A secret that a rule does not match, and that is not in the secrets file, goes through. Use `hygienics setup` and the secrets file to cover your own values.
 - The placeholder replaces the secret in the text that the model sees. The model can not use the secret. This is the intent.
-
-## Development
-
-Refer to [DEVELOPMENT.md](DEVELOPMENT.md) for build, test, and release steps. Refer to [RESEARCH.md](RESEARCH.md) for the design decisions and sources.

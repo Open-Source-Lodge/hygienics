@@ -40,3 +40,5 @@ sets the version in the binaries, so that `hygienics -h` shows the tag.
 
 Dependabot opens one pull request each week for the Go modules and one for the
 actions. The commits use the `chore:` type. A `chore:` commit makes no release.
+
+Refer to [RESEARCH.md](RESEARCH.md) for the design decisions and sources.
