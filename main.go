@@ -27,7 +27,8 @@ import (
 	"github.com/zricethezav/gitleaks/v8/detect"
 )
 
-const version = "0.1.0"
+// The release workflow sets version with ldflags.
+var version = "dev"
 
 type scanner struct {
 	det      *detect.Detector

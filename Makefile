@@ -1,4 +1,4 @@
-.PHONY: build start start-block test clean install uninstall
+.PHONY: build start start-block test lint clean install uninstall
 
 build:
 	go build -o bin/hygienics .
@@ -11,6 +11,12 @@ start-block: build
 
 test:
 	go test ./...
+
+lint:
+	test -z "$$(gofmt -l .)"
+	go vet ./...
+	go run honnef.co/go/tools/cmd/staticcheck@latest ./...
+	go run golang.org/x/vuln/cmd/govulncheck@latest ./...
 
 clean:
 	rm -rf bin
