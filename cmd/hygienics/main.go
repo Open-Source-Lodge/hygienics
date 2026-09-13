@@ -27,6 +27,7 @@ import (
 // The release workflow sets version with ldflags.
 var version = "dev"
 
+// completionScript is a bash-style completion function. It also operates in
 // zsh after `bashcompinit`.
 const completionScript = `_hygienics() {
     local cur="${COMP_WORDS[COMP_CWORD]}" prev="${COMP_WORDS[COMP_CWORD-1]}"

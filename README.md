@@ -53,13 +53,7 @@ cd hygienics
 make build          # writes bin/hygienics
 ```
 
-The command is in `cmd/hygienics`. Use `go build ./cmd/hygienics` to build without make. The packages in `internal/` hold the logic:
-
-| package             | purpose                                                   |
-| ------------------- | --------------------------------------------------------- |
-| `internal/scan`     | finds secrets in request bodies, key files, and the environment |
-| `internal/proxy`    | the HTTP handler that redacts or blocks a request         |
-| `internal/logfile`  | the rotating log file                                     |
+The command is in `cmd/hygienics`. Use `go build ./cmd/hygienics` to build without make. See DEVELOPMENT.md for the package layout.
 
 ## Quick start
 
