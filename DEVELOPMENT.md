@@ -10,7 +10,7 @@ make lint
 
 ## Layout
 
-- `cmd/hygienics/` is the command: flags, subcommands, `main()`.
+- `cmd/hygienics/` is the command: flags, subcommands, `main()`. Use `go build ./cmd/hygienics` to build without make.
 - `internal/scan/` detects secrets in bytes, credential files and the environment.
 - `internal/proxy/` is the HTTP handler that redacts or blocks a request.
 - `internal/logfile/` is the size-bounded log file.

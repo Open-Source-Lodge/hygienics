@@ -53,8 +53,6 @@ cd hygienics
 make build          # writes bin/hygienics
 ```
 
-The command is in `cmd/hygienics`. Use `go build ./cmd/hygienics` to build without make. See DEVELOPMENT.md for the package layout.
-
 ## Quick start
 
 1. Start the proxy:
