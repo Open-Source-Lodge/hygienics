@@ -43,7 +43,7 @@ jobs:
             GOOS="$os" GOARCH="$arch" CGO_ENABLED=0 \
               go build -trimpath \
               -ldflags "-s -w -X main.version=$TAG" \
-              -o "hygienics-$os-$arch$ext" .
+              -o "hygienics-$os-$arch$ext" ./cmd/hygienics
           done
           sha256sum hygienics-* > checksums.txt
           gh release upload "$TAG" hygienics-* checksums.txt

@@ -53,6 +53,8 @@ cd hygienics
 make build          # writes bin/hygienics
 ```
 
+See DEVELOPMENT.md for the source layout.
+
 ## Quick start
 
 1. Start the proxy:

@@ -1,7 +1,7 @@
 .PHONY: build start start-block test lint clean install uninstall
 
 build:
-	go build -o bin/hygienics .
+	go build -o bin/hygienics ./cmd/hygienics
 
 start: build
 	./bin/hygienics
