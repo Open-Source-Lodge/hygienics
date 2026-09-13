@@ -8,6 +8,13 @@ make test
 make lint
 ```
 
+## Layout
+
+- `cmd/hygienics/` is the command: flags, subcommands, `main()`.
+- `internal/scan/` detects secrets in bytes, credential files and the environment.
+- `internal/proxy/` is the HTTP handler that redacts or blocks a request.
+- `internal/logfile/` is the size-bounded log file.
+
 ## Commit messages
 
 Write the commit messages in the Conventional Commits format. The release
