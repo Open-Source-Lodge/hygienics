@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.2](https://github.com/Open-Source-Lodge/hygienics/compare/v0.2.1...v0.2.2) (2026-09-13)
+
+
+### Bug Fixes
+
+* move source into cmd/ and internal/ packages ([#9](https://github.com/Open-Source-Lodge/hygienics/issues/9)) ([2167d39](https://github.com/Open-Source-Lodge/hygienics/commit/2167d39ba8396671fa1e34d4fc7fbd2baa259c91))
+
 ## [0.2.1](https://github.com/Open-Source-Lodge/hygienics/compare/v0.2.0...v0.2.1) (2026-09-12)
 
 
