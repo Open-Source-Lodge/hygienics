@@ -48,6 +48,20 @@ func TestSecretCmd(t *testing.T) {
 	}
 }
 
+func TestDiscoverInConfig(t *testing.T) {
+	f := t.TempDir() + "/rules.toml"
+	os.WriteFile(f, []byte("discover = true\n[extend]\nuseDefault = true\n"), 0o600)
+	if !discoverInConfig(f) {
+		t.Fatal("discover = true not read from config")
+	}
+	if _, err := scan.NewDetector(f); err != nil {
+		t.Fatalf("gitleaks loader must accept the discover key: %v", err)
+	}
+	if discoverInConfig("") || discoverInConfig(f+".missing") {
+		t.Fatal("empty or missing path must be false")
+	}
+}
+
 func TestSetupCmd(t *testing.T) {
 	f := t.TempDir() + "/secrets"
 	os.WriteFile(f, []byte("preexisting-literal-abc123\n"), 0o600)

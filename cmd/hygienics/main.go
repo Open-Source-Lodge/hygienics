@@ -17,6 +17,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/spf13/viper"
 	"github.com/zricethezav/gitleaks/v8/detect"
 
 	"hygienics/internal/logfile"
@@ -40,7 +41,7 @@ const completionScript = `_hygienics() {
     elif [[ ${COMP_WORDS[1]} == setup ]]; then
         COMPREPLY=($(compgen -W "-secrets -entropy" -- "$cur"))
     else
-        COMPREPLY=($(compgen -W "secret setup logs completion help -listen -upstream -mode -config -secrets -log -log-lines" -- "$cur"))
+        COMPREPLY=($(compgen -W "secret setup logs completion help -listen -upstream -mode -config -secrets -log -log-lines -discover" -- "$cur"))
     fi
 }
 complete -F _hygienics hygienics
@@ -97,6 +98,7 @@ func main() {
 	secrets := flag.String("secrets", defaultSecrets, "file with exact secret strings, one per line")
 	logFile := flag.String("log", defaultLog, "also append log output to this file (rolling); empty disables")
 	logLines := flag.Int("log-lines", 10000, "maximum number of lines kept in the log file")
+	discover := flag.Bool("discover", false, "read ~/.ssh private keys and common credential files into memory as secrets; nothing is written (or set discover = true in -config)")
 	flag.Usage = func() {
 		fmt.Fprint(flag.CommandLine.Output(), `hygienics `+version+`
 
@@ -106,7 +108,7 @@ Usage:
   hygienics secret remove          remove a secret from the secrets file
   hygienics secret list            show each secret in a masked form
   hygienics secret path            show the path of the secrets file
-  hygienics setup                  scan the environment, add found secrets to the secrets file
+  hygienics setup                  discover secrets in the environment, write them to the secrets file
   hygienics logs [-n N]            print the log of the running or last proxy (last N lines)
   hygienics completion             print the shell completion script
   hygienics help                   show this help
@@ -147,9 +149,14 @@ Options:
 	} else if !os.IsNotExist(err) || *secrets != defaultSecrets {
 		log.Fatal(err) // explicit -secrets path must exist; missing default is fine
 	}
-	if keys := scan.KeyFileLiterals(home); len(keys) > 0 {
+	if !*discover && discoverInConfig(*rules) {
+		*discover = true
+	}
+	if !*discover {
+		log.Printf("discovery off: did not look for secrets in ~/.ssh and credential files (use -discover, see README, Key files)")
+	} else if keys := scan.KeyFileLiterals(home); len(keys) > 0 {
 		s.Literals = append(s.Literals, keys...)
-		log.Printf("loaded %d line(s) from key and credential files in home", len(keys))
+		log.Printf("discovery on: holding %d line(s) from key and credential files in memory", len(keys))
 	}
 	// ponytail: the port bind is the "already running" check; no pidfile needed.
 	ln, err := net.Listen("tcp", *listen)
@@ -158,6 +165,22 @@ Options:
 	}
 	log.Printf("hygienics %s listening on %s → %s (mode=%s)", version, *listen, upstream, *mode)
 	log.Fatal(http.Serve(ln, proxy.New(upstream, s, *mode == "block")))
+}
+
+// discoverInConfig reports whether the -config TOML sets `discover = true`.
+// The gitleaks loader ignores the extra key. A missing or bad file is false;
+// NewDetector already reported the error.
+func discoverInConfig(path string) bool {
+	if path == "" {
+		return false
+	}
+	v := viper.New()
+	v.SetConfigFile(path)
+	v.SetConfigType("toml")
+	if err := v.ReadInConfig(); err != nil {
+		return false
+	}
+	return v.GetBool("discover")
 }
 
 // secretCmd manages the literal-secrets file:
@@ -237,8 +260,8 @@ func secretCmd(args []string) error {
 	}
 }
 
-// setupCmd scans the process environment for secrets and appends them to the
-// Literals file:
+// setupCmd discovers secrets in the process environment and appends them in
+// plain text to the secrets file (mode 0600). It reads no files:
 //
 //	hygienics setup [-secrets file]
 func setupCmd(args []string) error {
