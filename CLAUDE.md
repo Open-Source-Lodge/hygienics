@@ -14,6 +14,7 @@ Local reverse proxy that scans Claude Code's outbound Messages API traffic for s
 - **Raw-body scanning.** We scan/replace on the raw JSON bytes, not a parsed tree (see `ponytail:` comment in internal/scan/scan.go). Valid because secrets don't contain quotes/backslashes.
 - **Rules:** gitleaks default TOML (MIT). Do not link trufflehog (AGPL). Custom: `-config` (gitleaks-format TOML) and `-secrets` (literal strings file, default `~/.config/hygienics/secrets`).
 - SSE responses pass through untouched; forward `ping` events (300 s idle timeout).
+- **Opt-in secret sources.** The proxy reads secrets only from the secrets file. Every other source needs an explicit user action: key files only with `-discover` (or `discover = true` in `-config`), the environment only via `hygienics setup`. Never add a source that is on by default. `loadSecrets` in cmd/hygienics/main.go is the single place that loads secrets for the proxy; `TestLoadSecretsOptIn` guards it.
 
 ## Critical: no secret-shaped literals in this repo
 

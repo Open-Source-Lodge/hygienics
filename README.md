@@ -28,7 +28,7 @@ Claude Code ──▶ hygienics ──▶ api.anthropic.com
 - **Sees everything.** Claude Code hooks cannot change tool results, `@file` content, `CLAUDE.md`, compaction, or subagent traffic. A proxy behind `ANTHROPIC_BASE_URL` sees each request.
 - **Approximately 220 rules.** The default rules come from [gitleaks](https://github.com/gitleaks/gitleaks). The rules include entropy checks.
 - **Stable placeholders.** The same secret always becomes the same `[REDACTED:<rule>:<hash>]`. The prompt cache of Anthropic continues to operate. The model sees a consistent value.
-- **Your own secrets.** Add exact strings and custom pattern rules. The proxy also loads the keys in `~/.ssh` and common credential files at start.
+- **Your own secrets.** Add exact strings and custom pattern rules. With `-discover`, the proxy also reads the private keys and credential files listed in [Key files](#key-files-discovery) into memory at start. The proxy writes nothing to disk.
 - **Works with API keys and claude.ai login.** The proxy does not touch authentication.
 - **One binary.** No runtime dependencies. Builds for macOS, Linux, and Windows.
 
@@ -108,27 +108,48 @@ The `add` and `remove` commands show the prompt `enter secret`. Type the secret,
 
 Use `-secrets FILE` to select a different file, for both the proxy and the `secret` command.
 
-### Automatic setup from the environment
+### Discover secrets in the environment (setup)
 
-The `setup` command examines the environment variables:
+The `setup` command discovers secrets in the environment variables of the shell that runs the command:
 
 ```sh
 hygienics setup
 ```
 
-The command applies the gitleaks rules to each `NAME=value` pair. The variable name gives context that a request body does not have. For example, the name `DB_PASSWORD` marks the value as a secret. The command adds each found value to the secrets file. The command ignores short values, paths, and common shell variables.
+The command reads only the environment variables. The command does not read files. The command applies the gitleaks rules to each `NAME=value` pair. The variable name gives context that a request body does not have. For example, the name `DB_PASSWORD` marks the value as a secret. The command ignores short values, paths, and common shell variables.
 
 The command also makes an entropy check. A value with high entropy counts as a secret, also when no rule matches and the variable name is not special. Use `-entropy` to change the threshold in bits per byte (default 3.3). A higher threshold adds fewer entries. Set the option to `0` to turn the check off.
 
+**How the command stores the secrets.** The command writes each discovered value in plain text to the secrets file, `~/.config/hygienics/secrets` (or `-secrets FILE`). The file has mode `0600`, so only your user can read the file. The command appends to the file and does not write a value twice. The values stay in the file until you remove them with `hygienics secret remove`. This is different from `-discover`, which reads the files in [Key files](#key-files-discovery) into memory and writes nothing.
+
 The command shows each added value in a masked form. Examine the list. A wrong entry causes the proxy to redact normal text. Remove a wrong entry with `hygienics secret remove`.
 
-### Key files
+### Key files (discovery)
 
-At start, the proxy reads the private keys in `~/.ssh` and these credential files:
+Discovery is off by default. Turn discovery on with `-discover`, or with `discover = true` in the `-config` file.
 
-`~/.aws/credentials`, `~/.netrc`, `~/.git-credentials`, `~/.config/git/credentials`, `~/.npmrc`, `~/.pypirc`, `~/.docker/config.json`, `~/.kube/config`, `~/.config/gh/hosts.yml`, `~/.fly/config.yml`, `~/.config/gcloud/application_default_credentials.json`, `~/.terraform.d/credentials.tfrc.json`, `~/.cargo/credentials.toml`, `~/.vault-token`
+With discovery on, the proxy reads these files into memory at start. The values stay in memory for the life of the process. The proxy reads no other files.
 
-The proxy adds each long value in these files to the secrets in memory. The proxy also redacts a long public value, for example a WireGuard public key. This is safe. The proxy does not write the keys to the secrets file. If a key goes into a request, the proxy redacts the key line by line.
+| path | what the proxy reads |
+| ---- | -------------------- |
+| `~/.ssh/*` | private keys. The proxy skips `*.pub`, `config`, `authorized_keys`, and `known_hosts*`. |
+| `~/.aws/credentials` | AWS access keys and session tokens |
+| `~/.netrc` | passwords and tokens for `curl`, `git`, and other tools |
+| `~/.git-credentials`, `~/.config/git/credentials` | git passwords and tokens |
+| `~/.npmrc` | npm auth tokens |
+| `~/.pypirc` | PyPI passwords and tokens |
+| `~/.docker/config.json` | registry auth strings |
+| `~/.kube/config` | cluster tokens, client keys, and certificates |
+| `~/.config/gh/hosts.yml` | GitHub CLI OAuth tokens |
+| `~/.fly/config.yml` | Fly.io access token |
+| `~/.config/gcloud/application_default_credentials.json` | Google Cloud refresh token and client secret |
+| `~/.terraform.d/credentials.tfrc.json` | Terraform Cloud token |
+| `~/.cargo/credentials.toml` | crates.io token |
+| `~/.vault-token` | HashiCorp Vault token |
+
+The rule is simple. The proxy takes the last word of each line and removes quotes, commas, and brackets. If the value has 20 characters or more, the value becomes a secret. This gives one secret per line of a private key and one secret per `name = value` line. Short values, comments, section names, and empty lines do not become secrets.
+
+The proxy keeps the values in memory only. The proxy does not write the values to the secrets file or to the log. The proxy also redacts a long public value, for example a WireGuard public key. This is safe. A missing file is not an error.
 
 ### Pattern rules
 
@@ -189,6 +210,7 @@ Use `-log PATH` to change the file. Use `-log ""` to disable the file. Use `-log
 | `-secrets`   | `~/.config/hygienics/secrets`    | file with exact secret strings, one per line       |
 | `-log`       | `~/.config/hygienics/hygienics.log` | log file, rotated; empty disables               |
 | `-log-lines` | `10000`                          | maximum number of lines kept in the log file       |
+| `-discover`  | off                              | read the files in [Key files](#key-files-discovery) into memory |
 
 Run `hygienics -h` to see the version and all commands.
 
@@ -215,5 +237,5 @@ Then open a new shell. Push Tab to complete the commands and the options.
 
 - The proxy examines requests, not responses. Streamed responses pass through unchanged.
 - The proxy sees only traffic that goes through `ANTHROPIC_BASE_URL`. The proxy does not cover other programs on the machine.
-- A secret that a rule does not match, and that is not in the secrets file, goes through. Use `hygienics setup` and the secrets file to cover your own values.
+- A secret that a rule does not match, and that is not in the secrets file, goes through. Use `hygienics setup`, `-discover`, and the secrets file to cover your own values.
 - The placeholder replaces the secret in the text that the model sees. The model can not use the secret. This is the intent.
