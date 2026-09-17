@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"os"
+	"strings"
 	"testing"
 
 	"hygienics/internal/scan"
@@ -45,6 +46,32 @@ func TestSecretCmd(t *testing.T) {
 	}
 	if err := secretCmd([]string{"-secrets", f, "add", val}); err == nil {
 		t.Fatal("expected refusal of secret argument")
+	}
+}
+
+// TestLoadSecretsOptIn guards the rule that the proxy reads secrets only from
+// the secrets file unless the user opts in.
+func TestLoadSecretsOptIn(t *testing.T) {
+	home := t.TempDir()
+	os.MkdirAll(home+"/.ssh", 0o700)
+	line := strings.Repeat("QUJD", 16)
+	os.WriteFile(home+"/.ssh/id_test", []byte("-----BEGIN KEY-----\n"+line+"\n-----END KEY-----\n"), 0o600)
+	secrets := home + "/secrets"
+	os.WriteFile(secrets, []byte("from-secrets-file-abc123\n"), 0o600)
+
+	lits, err := loadSecrets(secrets, secrets, home, false)
+	if err != nil || len(lits) != 1 || string(lits[0]) != "from-secrets-file-abc123" {
+		t.Fatalf("discover=false must read only the secrets file: %q %v", lits, err)
+	}
+	lits, err = loadSecrets(secrets, secrets, home, true)
+	if err != nil || len(lits) != 2 || string(lits[1]) != line {
+		t.Fatalf("discover=true must add the key file: %q %v", lits, err)
+	}
+	if _, err := loadSecrets(home+"/missing", home+"/missing", home, false); err != nil {
+		t.Fatalf("missing default secrets file must be fine: %v", err)
+	}
+	if _, err := loadSecrets(home+"/missing", home+"/other", home, false); err == nil {
+		t.Fatal("missing explicit -secrets path must be an error")
 	}
 }
 

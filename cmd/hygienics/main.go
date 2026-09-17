@@ -142,22 +142,11 @@ Options:
 	if err != nil {
 		log.Fatal(err)
 	}
-	s := &scan.Scanner{Det: det}
-	if lits, err := scan.LoadLiterals(*secrets); err == nil {
-		s.Literals = lits
-		log.Printf("loaded %d literal secret(s) from %s", len(lits), *secrets)
-	} else if !os.IsNotExist(err) || *secrets != defaultSecrets {
-		log.Fatal(err) // explicit -secrets path must exist; missing default is fine
+	lits, err := loadSecrets(*secrets, defaultSecrets, home, *discover || discoverInConfig(*rules))
+	if err != nil {
+		log.Fatal(err)
 	}
-	if !*discover && discoverInConfig(*rules) {
-		*discover = true
-	}
-	if !*discover {
-		log.Printf("discovery off: did not look for secrets in ~/.ssh and credential files (use -discover, see README, Key files)")
-	} else if keys := scan.KeyFileLiterals(home); len(keys) > 0 {
-		s.Literals = append(s.Literals, keys...)
-		log.Printf("discovery on: holding %d line(s) from key and credential files in memory", len(keys))
-	}
+	s := &scan.Scanner{Det: det, Literals: lits}
 	// ponytail: the port bind is the "already running" check; no pidfile needed.
 	ln, err := net.Listen("tcp", *listen)
 	if err != nil {
@@ -165,6 +154,26 @@ Options:
 	}
 	log.Printf("hygienics %s listening on %s → %s (mode=%s)", version, *listen, upstream, *mode)
 	log.Fatal(http.Serve(ln, proxy.New(upstream, s, *mode == "block")))
+}
+
+// loadSecrets returns the literal secrets the proxy redacts. The secrets file
+// is the only source that is always read. The key files in home are read only
+// when discover is true. No other source exists; do not add one that is on by
+// default (see CLAUDE.md, opt-in secret sources).
+func loadSecrets(path, defaultPath, home string, discover bool) ([][]byte, error) {
+	lits, err := scan.LoadLiterals(path)
+	if err == nil {
+		log.Printf("loaded %d literal secret(s) from %s", len(lits), path)
+	} else if !os.IsNotExist(err) || path != defaultPath {
+		return nil, err // explicit -secrets path must exist; missing default is fine
+	}
+	if !discover {
+		log.Printf("discovery off: did not look for secrets in ~/.ssh and credential files (use -discover, see README, Key files)")
+		return lits, nil
+	}
+	keys := scan.KeyFileLiterals(home)
+	log.Printf("discovery on: holding %d line(s) from key and credential files in memory", len(keys))
+	return append(lits, keys...), nil
 }
 
 // discoverInConfig reports whether the -config TOML sets `discover = true`.
