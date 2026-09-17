@@ -7,8 +7,8 @@ The proxy runs on the machine of the user and can read private keys, credential 
 ## What the rule covers
 
 - The secrets file (`-secrets`) is the only source that the proxy reads without a flag.
-- The key files in the home directory are read only with `-discover` or `discover = true` in the `-config` file.
-- The environment is read only by the `hygienics setup` command.
+- The proxy reads the key files in the home directory only with `-discover` or `discover = true` in the `-config` file.
+- Only the `hygienics setup` command reads the environment.
 - `loadSecrets` in `cmd/hygienics/main.go` is the single place that loads secrets for the proxy. `TestLoadSecretsOptIn` in `cmd/hygienics/main_test.go` guards it. A change that adds a source also changes the test and the `README.md`.
 
 ## What the rule does not cover

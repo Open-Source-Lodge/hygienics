@@ -98,7 +98,7 @@ func main() {
 	secrets := flag.String("secrets", defaultSecrets, "file with exact secret strings, one per line")
 	logFile := flag.String("log", defaultLog, "also append log output to this file (rolling); empty disables")
 	logLines := flag.Int("log-lines", 10000, "maximum number of lines kept in the log file")
-	discover := flag.Bool("discover", false, "read ~/.ssh private keys and common credential files into memory as secrets; nothing is written (or set discover = true in -config)")
+	discover := flag.Bool("discover", false, "read ~/.ssh private keys and common credential files into memory as secrets; the proxy writes nothing (or set discover = true in -config)")
 	flag.Usage = func() {
 		fmt.Fprint(flag.CommandLine.Output(), `hygienics `+version+`
 
@@ -156,9 +156,9 @@ Options:
 	log.Fatal(http.Serve(ln, proxy.New(upstream, s, *mode == "block")))
 }
 
-// loadSecrets returns the literal secrets the proxy redacts. The secrets file
-// is the only source that is always read. The key files in home are read only
-// when discover is true. No other source exists; do not add one that is on by
+// loadSecrets returns the literal secrets the proxy redacts. The proxy always
+// reads the secrets file. The proxy reads the key files in home only when
+// discover is true. No other source exists; do not add one that is on by
 // default (see CLAUDE.md, opt-in secret sources).
 func loadSecrets(path, defaultPath, home string, discover bool) ([][]byte, error) {
 	lits, err := scan.LoadLiterals(path)

@@ -28,7 +28,7 @@ Claude Code ──▶ hygienics ──▶ api.anthropic.com
 - **Sees everything.** Claude Code hooks cannot change tool results, `@file` content, `CLAUDE.md`, compaction, or subagent traffic. A proxy behind `ANTHROPIC_BASE_URL` sees each request.
 - **Approximately 220 rules.** The default rules come from [gitleaks](https://github.com/gitleaks/gitleaks). The rules include entropy checks.
 - **Stable placeholders.** The same secret always becomes the same `[REDACTED:<rule>:<hash>]`. The prompt cache of Anthropic continues to operate. The model sees a consistent value.
-- **Your own secrets.** Add exact strings and custom pattern rules. With `-discover`, the proxy also reads the private keys and credential files listed in [Key files](#key-files-discovery) into memory at start. Nothing is written to disk.
+- **Your own secrets.** Add exact strings and custom pattern rules. With `-discover`, the proxy also reads the private keys and credential files listed in [Key files](#key-files-discovery) into memory at start. The proxy writes nothing to disk.
 - **Works with API keys and claude.ai login.** The proxy does not touch authentication.
 - **One binary.** No runtime dependencies. Builds for macOS, Linux, and Windows.
 
