@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/Open-Source-Lodge/hygienics/compare/v0.2.2...v0.3.0) (2026-09-17)
+
+
+### Features
+
+* make key-file discovery opt-in with -discover ([#11](https://github.com/Open-Source-Lodge/hygienics/issues/11)) ([97d05f5](https://github.com/Open-Source-Lodge/hygienics/commit/97d05f53b703cd57bc40e44616febbb0234e34d4))
+
 ## [0.2.2](https://github.com/Open-Source-Lodge/hygienics/compare/v0.2.1...v0.2.2) (2026-09-13)
 
 
